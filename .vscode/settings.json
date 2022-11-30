@@ -1,0 +1,8 @@
+{
+    "files.associations": {
+        "rcc.h": "c",
+        "gd32f427r_start.h": "c",
+        "msc.h": "c",
+        "usbd.h": "c"
+    }
+}
