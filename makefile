@@ -42,7 +42,8 @@ LD_PATH = -T $(TOP)/ldscripts/gd32f425_427_xK_flash.ld
 # 	$(Q)$(MAKE) -C $(OPENCM3_DIR)
 
 C_SRC=$(shell find ./src -name '*.c')  
-C_SRC+=$(shell find ./gd_libs -name '*.c')  
+C_SRC+=$(shell find ./gd_libs/GD32F4xx/Firmware/CMSIS -name '*.c')  
+C_SRC+=$(shell find ./gd_libs/GD32F4xx/Firmware/GD32F4xx_standard_peripheral -name '*.c') 
 C_SRC+=$(TOP)/libopencm3/lib/stm32/f4/rcc.c
 C_SRC+=$(TOP)/libopencm3/lib/stm32/f4/pwr.c
 C_SRC+=$(TOP)/libopencm3/lib/stm32/f4/flash.c
