@@ -19,13 +19,19 @@
  * along with this library.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+// clang-format off
 #include <stdlib.h>
-
-#include "ramdisk.h"
 #include <libopencm3/stm32/gpio.h>
 #include <libopencm3/stm32/rcc.h>
 #include <libopencm3/usb/usbd.h>
 #include <libopencm3/usb/msc.h>
+#include "ramdisk.h"
+
+#include "drv_usb_core.h"
+#include "drv_usb_hw.h"
+// #include "usbd_msc_core.h"
+
+// clang-format on
 
 static const struct usb_device_descriptor dev_descr = {
     .bLength = USB_DT_DEVICE_SIZE,
@@ -103,22 +109,44 @@ static usbd_device *msc_dev;
 /* Buffer to be used for control requests. */
 static uint8_t usbd_control_buffer[128];
 
-int msc_main(void) {
-  //   rcc_clock_setup_pll(&rcc_hse_8mhz_3v3[RCC_CLOCK_3V3_168MHZ]);
+usb_core_driver msc_udisk;
+unsigned char SRAM[40 * 1024];
 
-  rcc_periph_clock_enable(RCC_GPIOB);
-  rcc_periph_clock_enable(RCC_OTGHS);
+// void gd32_usb_core_init(void) {
+//   /* configure the GPIO */
+//   usb_gpio_config();
+//   /* configure the USB peripheral clock */
+//   usb_rcu_config();
+//   /* initialize the USB timer */
+//   usb_timer_init();
 
-  gpio_mode_setup(GPIOB, GPIO_MODE_AF, GPIO_PUPD_NONE, GPIO14 | GPIO15);
-  gpio_set_af(GPIOB, GPIO_AF12, GPIO14 | GPIO15);
+//   usbd_core_init(&msc_udisk,
+// #ifdef USE_USB_FS
+//                  USB_CORE_ENUM_FS,
+// #elif defined(USE_USB_HS)
+//                  USB_CORE_ENUM_HS,
+// #endif
+//                  &msc_desc, &msc_class);
+//   usb_intr_config();
+// }
 
-  msc_dev = usbd_init(&otghs_usb_driver, &dev_descr, &config_descr, usb_strings,
+/*usb gpio config*/
+void usb_gpio_init(void) {
+  rcu_periph_clock_enable(RCU_SYSCFG);
+  rcu_periph_clock_enable(RCU_GPIOA);
+  /* USBFS_DM(PA11) and USBFS_DP(PA12) GPIO pin configuration */
+  gpio_mode_set(GPIOA, GPIO_MODE_AF, GPIO_PUPD_NONE, GPIO_PIN_11 | GPIO_PIN_12);
+  gpio_output_options_set(GPIOA, GPIO_OTYPE_PP, GPIO_OSPEED_MAX,
+                          GPIO_PIN_11 | GPIO_PIN_12);
+  gpio_af_set(GPIOA, GPIO_AF_10, GPIO_PIN_11 | GPIO_PIN_12);
+}
+
+int mscLoop(void) {
+  msc_dev = usbd_init(&otgfs_usb_driver, &dev_descr, &config_descr, usb_strings,
                       3, usbd_control_buffer, sizeof(usbd_control_buffer));
-
   ramdisk_init();
   usb_msc_init(msc_dev, 0x82, 64, 0x01, 64, "VendorID", "ProductID", "0.00",
                ramdisk_blocks(), ramdisk_read, ramdisk_write);
-
   for (;;) {
     usbd_poll(msc_dev);
   }

@@ -7,14 +7,15 @@
         {
             "cwd": "${workspaceFolder}",
             "executable": "./gd32f4xx_libopencm3usbxxx.elf",
-            "name": "Debug with JLink",
+            "name": "gd32_usbdrvs",
             "request": "launch",
             "type": "cortex-debug",
             "device": "GD32F427RK",
             "runToEntryPoint": "main",
             "showDevDebugOutput": "none",
             "servertype": "jlink",
-            "interface": "swd"
+            "interface": "swd" ,
+            "preLaunchTask": "gd32_usbdrvs",
         }
 
     ]

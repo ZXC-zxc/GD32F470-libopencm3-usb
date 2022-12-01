@@ -3,6 +3,8 @@
         "rcc.h": "c",
         "gd32f427r_start.h": "c",
         "msc.h": "c",
-        "usbd.h": "c"
+        "usbd.h": "c",
+        "common.h": "c",
+        "usb_private.h": "c"
     }
 }
