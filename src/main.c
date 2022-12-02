@@ -13,8 +13,8 @@ void firmware_usbLoop(void) {
 
 int main(void) {
   usb_gpio_init();
-  usbLoop();
+  // usbLoop();
   // mscLoop();
-  // firmware_usbLoop();
+  firmware_usbLoop();
   return 0;
 }

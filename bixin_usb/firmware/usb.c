@@ -29,7 +29,7 @@
 #include "random_delays.h"
 // #include "timer.h"
 // #include "trans_fifo.h"
-// #include "trezor.h"
+#include "trezor.h"
 #if U2F_ENABLED
 #include "u2f.h"
 #endif
@@ -46,7 +46,21 @@
 #include "webusb.h"
 #include "winusb.h"
 
+// 临时添加
 static char config_uuid_str[2 * 12 + 1] = {0};
+// add way how to mark confidential data
+#ifndef CONFIDENTIAL
+#define CONFIDENTIAL
+#endif
+static void config_uuid_init(void) {
+  strcpy(config_uuid_str, "this is my bixin device");
+}
+static void debugLog(int level, const char *bucket, const char *text) {
+  (void)level;
+  (void)bucket;
+  (void)text;
+}
+
 #define NULL 0
 
 #define USB_INTERFACE_INDEX_MAIN 0
@@ -383,7 +397,9 @@ static void set_config(usbd_device *dev, uint16_t wValue) {
   usbd_ep_setup(dev, ENDPOINT_ADDRESS_U2F_IN, USB_ENDPOINT_ATTR_INTERRUPT,
                 USB_PACKET_SIZE, 0);
   usbd_ep_setup(dev, ENDPOINT_ADDRESS_U2F_OUT, USB_ENDPOINT_ATTR_INTERRUPT,
-                USB_PACKET_SIZE, u2f_rx_callback);
+                USB_PACKET_SIZE, NULL);
+  // usbd_ep_setup(dev, ENDPOINT_ADDRESS_U2F_OUT, USB_ENDPOINT_ATTR_INTERRUPT,
+  //               USB_PACKET_SIZE, u2f_rx_callback);
 #endif
 #if DEBUG_LINK
   usbd_ep_setup(dev, ENDPOINT_ADDRESS_DEBUG_IN, USB_ENDPOINT_ATTR_INTERRUPT,
@@ -413,6 +429,8 @@ static const struct usb_bos_descriptor bos_descriptor = {
     .capabilities = capabilities};
 
 void usbInit(void) {
+  // 临时添加
+  config_uuid_init();
   usbd_dev = usbd_init(&otgfs_usb_driver, &dev_descr, &config, usb_strings,
                        sizeof(usb_strings) / sizeof(*usb_strings),
                        usbd_control_buffer, sizeof(usbd_control_buffer));
@@ -488,12 +506,12 @@ void usbPoll(void) {
   // }
 
 #if U2F_ENABLED
-  data = u2f_out_data();
-  if (data) {
-    while (usbd_ep_write_packet(usbd_dev, ENDPOINT_ADDRESS_U2F_IN, data,
-                                USB_PACKET_SIZE) != USB_PACKET_SIZE) {
-    }
-  }
+  // data = u2f_out_data();
+  // if (data) {
+  //   while (usbd_ep_write_packet(usbd_dev, ENDPOINT_ADDRESS_U2F_IN, data,
+  //                               USB_PACKET_SIZE) != USB_PACKET_SIZE) {
+  //   }
+  // }
 #endif
 
 #if DEBUG_LINK

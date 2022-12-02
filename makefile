@@ -20,15 +20,16 @@ INC_FLAGS= -I $(TOP)/gd_libs/GD32F4xx/Firmware/GD32F4xx_standard_peripheral/Incl
 		-I $(TOP)/gd_libs/GD32F4xx/Firmware/GD32F4xx_usb_library/device/class/msc/Include  \
 		-I $(TOP)/gd_libs/GD32F4xx/Firmware/GD32F4xx_usb_library/ustd/class/msc \
 		-I $(TOP)/bixin_usb/common \
-		-I $(TOP)/bixin_usb/bootlader  \
+		-I $(TOP)/bixin_usb/firmware  \
 		-I $(TOP)/inc  \
 		-I $(TOP)/libopencm3/include \
 
-#    -I $(TOP)/bixin_usb/firmware  
+#    -I $(TOP)/bixin_usb/firmware  bootlader
 
 CFLAGS +=  -W -Wall -mcpu=cortex-m4 -mthumb
 CFLAGS +=  -ffunction-sections -fdata-sections
 CFLAGS +=  -D GD32F427 -D USE_STDPERIPH_DRIVER -D STM32F4 -D USB_FS_CORE -D USE_USB_FS
+CFLAGS +=  -D U2F_ENABLED
 CFLAGS +=   $(INC_FLAGS) -Os -g -std=gnu11
 
 ASMFLAGS = -mthumb -mcpu=cortex-m4 -g -Wa,--warn 
@@ -36,20 +37,6 @@ LDFLAGS += -mthumb -mcpu=cortex-m4
 LDFLAGS += -Wl,--start-group -lc -lm -Wl,--end-group -specs=nosys.specs -static -Wl,-cref,-u,Reset_Handler -Wl,-Map=Project.map -Wl,--gc-sections -Wl,--defsym=malloc_getpagesize_P=0x80
 
 LD_PATH = -T $(TOP)/ldscripts/gd32f425_427_xK_flash.ld
-
-# OPENCM3_DIR ?= $(realpath libopencm3)
-# lib:
-# 	$(Q)if [ ! "`ls -A $(OPENCM3_DIR)`" ] ; then \
-# 		printf "######## ERROR ########\n"; \
-# 		printf "\tlibopencm3 is not initialized.\n"; \
-# 		printf "\tPlease run:\n"; \
-# 		printf "\t$$ git submodule init\n"; \
-# 		printf "\t$$ git submodule update\n"; \
-# 		printf "\tbefore running make.\n"; \
-# 		printf "######## ERROR ########\n"; \
-# 		exit 1; \
-# 		fi
-# 	$(Q)$(MAKE) -C $(OPENCM3_DIR)
 
 C_SRC=$(shell find ./src -name '*.c')  
 C_SRC+=$(shell find ./gd_libs/GD32F4xx/Firmware/CMSIS -name '*.c')  
@@ -85,8 +72,9 @@ C_SRC+=$(TOP)/bixin_usb/common/util.c
 C_SRC+=$(TOP)/bixin_usb/common/usb21_standard.c
 C_SRC+=$(TOP)/bixin_usb/common/webusb.c
 C_SRC+=$(TOP)/bixin_usb/common/winusb.c
-C_SRC+=$(TOP)/bixin_usb/bootloader/usb.c
-# C_SRC+=$(TOP)/bixin_usb/firmware/usb.c
+# C_SRC+=$(TOP)/bixin_usb/bootloader/usb.c
+C_SRC+=$(TOP)/bixin_usb/firmware/usb.c
+# C_SRC+=$(TOP)/bixin_usb/firmware/u2f.c
 
 C_OBJ=$(C_SRC:%.c=%.o)          
 
