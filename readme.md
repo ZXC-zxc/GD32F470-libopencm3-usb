@@ -1,1 +1,2 @@
 ## GD32F470使用libopencm3实现HID与WebUSB复合设备的Demo
+使用GD32F470I-EVAL v1.0开发板测试

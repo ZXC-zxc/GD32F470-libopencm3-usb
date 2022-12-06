@@ -28,7 +28,7 @@ INC_FLAGS= -I $(TOP)/gd_libs/GD32F4xx/Firmware/GD32F4xx_standard_peripheral/Incl
 
 CFLAGS +=  -W -Wall -mcpu=cortex-m4 -mthumb
 CFLAGS +=  -ffunction-sections -fdata-sections
-CFLAGS +=  -D GD32F427 -D USE_STDPERIPH_DRIVER -D STM32F4 -D USB_FS_CORE -D USE_USB_FS
+CFLAGS +=  -D GD32F470 -D USE_STDPERIPH_DRIVER -D STM32F4 -D USB_FS_CORE -D USE_USB_FS
 CFLAGS +=  -D U2F_ENABLED
 CFLAGS +=   $(INC_FLAGS) -Os -g -std=gnu11
 
@@ -36,7 +36,7 @@ ASMFLAGS = -mthumb -mcpu=cortex-m4 -g -Wa,--warn
 LDFLAGS += -mthumb -mcpu=cortex-m4
 LDFLAGS += -Wl,--start-group -lc -lm -Wl,--end-group -specs=nosys.specs -static -Wl,-cref,-u,Reset_Handler -Wl,-Map=Project.map -Wl,--gc-sections -Wl,--defsym=malloc_getpagesize_P=0x80
 
-LD_PATH = -T $(TOP)/ldscripts/gd32f425_427_xK_flash.ld
+LD_PATH = -T $(TOP)/ldscripts/gd32f470xK_flash.ld
 
 C_SRC=$(shell find ./src -name '*.c')  
 C_SRC+=$(shell find ./gd_libs/GD32F4xx/Firmware/CMSIS -name '*.c')  

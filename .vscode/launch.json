@@ -10,7 +10,7 @@
             "name": "gd32_usbdrvs",
             "request": "launch",
             "type": "cortex-debug",
-            "device": "GD32F427RK",
+            "device": "GD32F470IK",
             "runToEntryPoint": "main",
             "showDevDebugOutput": "none",
             "servertype": "jlink",
