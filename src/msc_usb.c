@@ -141,6 +141,53 @@ void usb_gpio_init(void) {
   gpio_af_set(GPIOA, GPIO_AF_10, GPIO_PIN_11 | GPIO_PIN_12);
 }
 
+int led_test(void) {
+  /* configure systick */
+  //   systick_config();
+
+  /* enable the LEDs GPIO clock */
+  rcu_periph_clock_enable(RCU_GPIOE);
+  rcu_periph_clock_enable(RCU_GPIOF);
+
+  /* configure LED1 GPIO port */
+  gpio_mode_set(GPIOE, GPIO_MODE_OUTPUT, GPIO_PUPD_NONE, GPIO_PIN_2);
+  gpio_output_options_set(GPIOE, GPIO_OTYPE_PP, GPIO_OSPEED_50MHZ, GPIO_PIN_2);
+  /* reset LED1 GPIO pin */
+  gpio_bit_reset(GPIOE, GPIO_PIN_2);
+
+  /* enable the LED2 GPIO clock */
+  /* configure LED2 GPIO port */
+  gpio_mode_set(GPIOE, GPIO_MODE_OUTPUT, GPIO_PUPD_NONE, GPIO_PIN_3);
+  gpio_output_options_set(GPIOE, GPIO_OTYPE_PP, GPIO_OSPEED_50MHZ, GPIO_PIN_3);
+  /* reset LED2 GPIO pin */
+  gpio_bit_reset(GPIOE, GPIO_PIN_3);
+
+  /* enable the LED3 GPIO clock */
+  /* configure LED3 GPIO port */
+  gpio_mode_set(GPIOF, GPIO_MODE_OUTPUT, GPIO_PUPD_NONE, GPIO_PIN_10);
+  gpio_output_options_set(GPIOF, GPIO_OTYPE_PP, GPIO_OSPEED_50MHZ, GPIO_PIN_10);
+  /* reset LED3 GPIO pin */
+  gpio_bit_reset(GPIOF, GPIO_PIN_10);
+
+  while (1) {
+    gpio_bit_set(GPIOF, GPIO_PIN_10);
+    /* turn on LED1, turn off LED3 */
+    gpio_bit_set(GPIOE, GPIO_PIN_2);
+    gpio_bit_reset(GPIOF, GPIO_PIN_10);
+    // delay_1ms(1000);
+
+    /* turn on LED2, turn off LED1 */
+    gpio_bit_set(GPIOE, GPIO_PIN_3);
+    gpio_bit_reset(GPIOE, GPIO_PIN_2);
+    // delay_1ms(1000);
+
+    /* turn on LED3, turn off LED2 */
+    gpio_bit_set(GPIOF, GPIO_PIN_10);
+    gpio_bit_reset(GPIOE, GPIO_PIN_3);
+    // delay_1ms(1000);
+  }
+}
+
 int mscLoop(void) {
   msc_dev = usbd_init(&otgfs_usb_driver, &dev_descr, &config_descr, usb_strings,
                       3, usbd_control_buffer, sizeof(usbd_control_buffer));
