@@ -107,7 +107,12 @@ static spi_master_init(void) {
 
   // 使用gd driver
   rcu_periph_clock_enable(RCU_GPIOI);
+  rcu_periph_clock_enable(RCU_GPIOH);
   rcu_periph_clock_enable(RCU_SPI1);
+
+  /* configure OLED DC RST PIN*/
+  gpio_mode_set(OLED_DC_PORT, GPIO_MODE_OUTPUT, GPIO_PUPD_NONE, OLED_DC_PIN);
+  gpio_mode_set(OLED_RST_PORT, GPIO_MODE_OUTPUT, GPIO_PUPD_NONE, OLED_RST_PIN);
 
   /* configure SPI1 GPIO */
   gpio_af_set(GPIOI, GPIO_AF_5, GPIO_PIN_1 | GPIO_PIN_2 | GPIO_PIN_3);

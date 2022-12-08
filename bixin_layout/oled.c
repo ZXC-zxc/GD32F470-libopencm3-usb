@@ -598,6 +598,12 @@ void spiLoop(void) {
   tmpBuf[7] = 0xA5;
 
   while (1) {
+    gpio_clear(OLED_DC_PORT, OLED_DC_PIN);  // set to CMD
+    gpio_set(OLED_DC_PORT, OLED_DC_PIN);    // set to DS
+
+    gpio_clear(OLED_RST_PORT, OLED_RST_PIN);  // set to RST
+    gpio_set(OLED_RST_PORT, OLED_RST_PIN);    // clear to RST
+
     SPISend(OLED_SPI1, tmpBuf, 8);
   }
 }

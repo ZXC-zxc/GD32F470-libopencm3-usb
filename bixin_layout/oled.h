@@ -29,10 +29,9 @@
 // #include "fonts.h"
 
 #define OLED_SPI1_BASE ((uint32_t)0x40000000U + 0x00003800U)
-#define SPI_INIT_MASK \
-  ((uint32_t)0x00003040U) /*!< SPI parameter initialization mask */
-
 #define OLED_SPI1 OLED_SPI1_BASE
+
+// 先放这后面流程中就不需要了
 #define OLED_NSS_HIGH gpio_set(GPIOI, GPIO0);
 #define OLED_NSS_LOW gpio_clear(GPIOI, GPIO0);
 
@@ -44,12 +43,20 @@
 #define OLED_RST_PORT GPIOA
 #define OLED_RST_PIN GPIO3  // PA3 | Reset display
 #else
-#define OLED_DC_PORT GPIOB
-#define OLED_DC_PIN GPIO0  // PB0 | Data/Command
-#define OLED_CS_PORT GPIOA
-#define OLED_CS_PIN GPIO4  // PA4 | SPI Select
-#define OLED_RST_PORT GPIOB
-#define OLED_RST_PIN GPIO1  // PB1 | Reset display
+// #define OLED_DC_PORT GPIOB
+// #define OLED_DC_PIN GPIO0  // PB0 | Data/Command
+// #define OLED_CS_PORT GPIOA
+// #define OLED_CS_PIN GPIO4  // PA4 | SPI Select
+// #define OLED_RST_PORT GPIOB
+// #define OLED_RST_PIN GPIO1  // PB1 | Reset display
+
+// gd32 driver
+#define OLED_DC_PORT GPIOH
+#define OLED_DC_PIN GPIO13  // PH13 | Data/Command
+#define OLED_CS_PORT GPIOI
+#define OLED_CS_PIN GPIO0  // PI0 | SPI Select
+#define OLED_RST_PORT GPIOH
+#define OLED_RST_PIN GPIO15  // PH15 | Reset display
 
 #endif
 
