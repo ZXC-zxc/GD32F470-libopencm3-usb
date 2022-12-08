@@ -21,6 +21,8 @@ INC_FLAGS= -I $(TOP)/gd_libs/GD32F4xx/Firmware/GD32F4xx_standard_peripheral/Incl
 		-I $(TOP)/gd_libs/GD32F4xx/Firmware/GD32F4xx_usb_library/ustd/class/msc \
 		-I $(TOP)/bixin_usb/common \
 		-I $(TOP)/bixin_usb/firmware  \
+		-I $(TOP)/bixin_i2c/mi2c  \
+		-I $(TOP)/bixin_layout  \
 		-I $(TOP)/inc  \
 		-I $(TOP)/libopencm3/include \
 
@@ -55,6 +57,10 @@ C_SRC+=$(TOP)/libopencm3/lib/stm32/common/flash_common_all.c
 C_SRC+=$(TOP)/libopencm3/lib/stm32/common/flash_common_f24.c
 C_SRC+=$(TOP)/libopencm3/lib/stm32/common/flash_common_f.c
 C_SRC+=$(TOP)/libopencm3/lib/stm32/common/rcc_common_all.c
+C_SRC+=$(TOP)/libopencm3/lib/stm32/common/spi_common_all.c
+C_SRC+=$(TOP)/libopencm3/lib/stm32/common/spi_common_v1.c
+C_SRC+=$(TOP)/libopencm3/lib/stm32/common/spi_common_v1_frf.c
+
 # usb related
 C_SRC+=$(TOP)/libopencm3/lib/usb/usb.c
 C_SRC+=$(TOP)/libopencm3/lib/usb/usb_f107.c
@@ -75,6 +81,9 @@ C_SRC+=$(TOP)/bixin_usb/common/winusb.c
 # C_SRC+=$(TOP)/bixin_usb/bootloader/usb.c
 C_SRC+=$(TOP)/bixin_usb/firmware/usb.c
 # C_SRC+=$(TOP)/bixin_usb/firmware/u2f.c
+C_SRC+=$(TOP)/bixin_layout/oled.c
+C_SRC+=$(TOP)/bixin_layout/memzero.c
+# C_SRC+=$(TOP)/bixin_layout/timer.c
 
 C_OBJ=$(C_SRC:%.c=%.o)          
 

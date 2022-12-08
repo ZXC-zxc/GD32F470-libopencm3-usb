@@ -46,10 +46,10 @@
 //#define __SYSTEM_CLOCK_HXTAL                    (uint32_t)(__HXTAL)
 //#define __SYSTEM_CLOCK_120M_PLL_IRC16M          (uint32_t)(120000000)
 //#define __SYSTEM_CLOCK_120M_PLL_8M_HXTAL        (uint32_t)(120000000)
-//#define __SYSTEM_CLOCK_120M_PLL_25M_HXTAL       (uint32_t)(120000000)
+#define __SYSTEM_CLOCK_120M_PLL_25M_HXTAL (uint32_t)(120000000)
 //#define __SYSTEM_CLOCK_168M_PLL_IRC16M          (uint32_t)(168000000)
 //#define __SYSTEM_CLOCK_168M_PLL_8M_HXTAL        (uint32_t)(168000000)
-#define __SYSTEM_CLOCK_168M_PLL_25M_HXTAL (uint32_t)(168000000)
+// #define __SYSTEM_CLOCK_168M_PLL_25M_HXTAL (uint32_t)(168000000)
 //#define __SYSTEM_CLOCK_200M_PLL_IRC16M          (uint32_t)(200000000)
 //#define __SYSTEM_CLOCK_200M_PLL_8M_HXTAL        (uint32_t)(200000000)
 // #define __SYSTEM_CLOCK_200M_PLL_25M_HXTAL (uint32_t)(200000000)
@@ -60,15 +60,15 @@
 #define SEL_IRC16M 0x00U
 #define SEL_HXTAL 0x01U
 #define SEL_PLLP 0x02U
-#define RCU_MODIFY                                                             \
-  {                                                                            \
-    volatile uint32_t i;                                                       \
-    RCU_CFG0 |= RCU_AHB_CKSYS_DIV2;                                            \
-    for (i = 0; i < 50000; i++)                                                \
-      ;                                                                        \
-    RCU_CFG0 |= RCU_AHB_CKSYS_DIV4;                                            \
-    for (i = 0; i < 50000; i++)                                                \
-      ;                                                                        \
+#define RCU_MODIFY                  \
+  {                                 \
+    volatile uint32_t i;            \
+    RCU_CFG0 |= RCU_AHB_CKSYS_DIV2; \
+    for (i = 0; i < 50000; i++)     \
+      ;                             \
+    RCU_CFG0 |= RCU_AHB_CKSYS_DIV4; \
+    for (i = 0; i < 50000; i++)     \
+      ;                             \
   }
 
 /* set the system clock frequency and declare the system clock configuration
@@ -1090,33 +1090,33 @@ void SystemCoreClockUpdate(void) {
 
   sws = GET_BITS(RCU_CFG0, 2, 3);
   switch (sws) {
-  /* IRC16M is selected as CK_SYS */
-  case SEL_IRC16M:
-    SystemCoreClock = IRC16M_VALUE;
-    break;
-  /* HXTAL is selected as CK_SYS */
-  case SEL_HXTAL:
-    SystemCoreClock = HXTAL_VALUE;
-    break;
-  /* PLLP is selected as CK_SYS */
-  case SEL_PLLP:
-    /* get the value of PLLPSC[5:0] */
-    pllpsc = GET_BITS(RCU_PLL, 0U, 5U);
-    plln = GET_BITS(RCU_PLL, 6U, 14U);
-    pllp = (GET_BITS(RCU_PLL, 16U, 17U) + 1U) * 2U;
-    /* PLL clock source selection, HXTAL or IRC8M/2 */
-    pllsel = (RCU_PLL & RCU_PLL_PLLSEL);
-    if (RCU_PLLSRC_HXTAL == pllsel) {
-      ck_src = HXTAL_VALUE;
-    } else {
-      ck_src = IRC16M_VALUE;
-    }
-    SystemCoreClock = ((ck_src / pllpsc) * plln) / pllp;
-    break;
-  /* IRC16M is selected as CK_SYS */
-  default:
-    SystemCoreClock = IRC16M_VALUE;
-    break;
+    /* IRC16M is selected as CK_SYS */
+    case SEL_IRC16M:
+      SystemCoreClock = IRC16M_VALUE;
+      break;
+    /* HXTAL is selected as CK_SYS */
+    case SEL_HXTAL:
+      SystemCoreClock = HXTAL_VALUE;
+      break;
+    /* PLLP is selected as CK_SYS */
+    case SEL_PLLP:
+      /* get the value of PLLPSC[5:0] */
+      pllpsc = GET_BITS(RCU_PLL, 0U, 5U);
+      plln = GET_BITS(RCU_PLL, 6U, 14U);
+      pllp = (GET_BITS(RCU_PLL, 16U, 17U) + 1U) * 2U;
+      /* PLL clock source selection, HXTAL or IRC8M/2 */
+      pllsel = (RCU_PLL & RCU_PLL_PLLSEL);
+      if (RCU_PLLSRC_HXTAL == pllsel) {
+        ck_src = HXTAL_VALUE;
+      } else {
+        ck_src = IRC16M_VALUE;
+      }
+      SystemCoreClock = ((ck_src / pllpsc) * plln) / pllp;
+      break;
+    /* IRC16M is selected as CK_SYS */
+    default:
+      SystemCoreClock = IRC16M_VALUE;
+      break;
   }
   /* calculate AHB clock frequency */
   idx = GET_BITS(RCU_CFG0, 4, 7);
