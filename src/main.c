@@ -1,8 +1,11 @@
 #include "msc_usb.h"
 #include "mi2c.h"
 #include "oled.h"
+#include "si2c.h"
+#include <libopencm3/cm3/nvic.h>
 #include <libopencm3/stm32/gpio.h>
 #include <libopencm3/stm32/rcc.h>
+#include <libopencm3/stm32/i2c.h>
 #include "gd32f4xx.h"
 
 #define I2CX_OWN_ADDRESS7 0x20
@@ -144,25 +147,153 @@ static spi_master_init(void) {
   //     SPI_CR1_DFF_8BIT, SPI_CR1_MSBFIRST);
   // spi_enable_ss_output(SPI1);
   OLED_NSS_HIGH;
-  //	spi_enable_software_slave_management(SPI1);
+  //	spi_enable_software_slave_manage  ment(SPI1);
   //	spi_set_nss_high(SPI1);
   //	spi_clear_mode_fault(SPI1);
   spi_enable(OLED_SPI1);
 }
 
-uint32_t send_n = 0, receive_n = 0;
-uint8_t spi1_send_array[10] = {0xAC, 0xA2, 0xA3, 0xA4, 0xA5,
-                               0xA6, 0xA7, 0xA8, 0xA9, 0xAF};
+#define I2C0_SLAVE_ADDRESS7 0x82
+#define I2C1_SLAVE_ADDRESS7 0x72
+
+uint8_t i2c_buffer_transmitter[16];
+uint8_t i2c_buffer_receiver[16];
+volatile uint8_t *i2c_txbuffer;
+volatile uint8_t *i2c_rxbuffer;
+volatile uint16_t i2c_nbytes;
+volatile ErrStatus status;
+volatile ErrStatus state = ERROR;
+
+/*!
+    \brief      memory compare function
+    \param[in]  src : source data
+    \param[in]  dst : destination data
+    \param[in]  length : the compare data length
+    \param[out] none
+    \retval     ErrStatus : ERROR or SUCCESS
+*/
+ErrStatus memory_compare(uint8_t *src, uint8_t *dst, uint16_t length) {
+  while (length--) {
+    if (*src++ != *dst++) {
+      return ERROR;
+    }
+  }
+  return SUCCESS;
+}
+
+void mi2c0_init(void) {
+  /* enable GPIOB clock */
+  rcu_periph_clock_enable(RCU_GPIOB);
+  /* enable I2C0 clock */
+  rcu_periph_clock_enable(RCU_I2C0);
+  /* I2C0 and I2C1 GPIO ports */
+  /* connect PB6 to I2C0_SCL */
+  gpio_af_set(GPIOB, GPIO_AF_4, GPIO_PIN_6);
+  /* connect PB7 to I2C0_SDA */
+  gpio_af_set(GPIOB, GPIO_AF_4, GPIO_PIN_7);
+
+  /* configure GPIO pins of I2C0 */
+  gpio_mode_set(GPIOB, GPIO_MODE_AF, GPIO_PUPD_PULLUP, GPIO_PIN_6);
+  gpio_output_options_set(GPIOB, GPIO_OTYPE_OD, GPIO_OSPEED_50MHZ, GPIO_PIN_6);
+  gpio_mode_set(GPIOB, GPIO_MODE_AF, GPIO_PUPD_PULLUP, GPIO_PIN_7);
+  gpio_output_options_set(GPIOB, GPIO_OTYPE_OD, GPIO_OSPEED_50MHZ, GPIO_PIN_7);
+
+  /* I2C clock configure */
+  i2c_clock_config(I2C0, 100000, I2C_DTCY_2);
+  /* I2C address configure */
+  i2c_mode_addr_config(I2C0, I2C_I2CMODE_ENABLE, I2C_ADDFORMAT_7BITS,
+                       I2C0_SLAVE_ADDRESS7);
+  /* enable I2C0 */
+  i2c_enable(I2C0);
+  /* enable acknowledge */
+  i2c_ack_config(I2C0, I2C_ACK_ENABLE);
+  // i2c_clock_config(I2C1, 100000, I2C_DTCY_2);
+
+  nvic_priority_group_set(NVIC_PRIGROUP_PRE1_SUB3);
+  nvic_irq_enable(I2C0_EV_IRQn, 0, 3);
+  nvic_irq_enable(I2C0_ER_IRQn, 0, 2);
+}
+
+void si2c_init(void) {
+  rcu_periph_clock_enable(RCU_I2C1);
+  /* connect PB10 to I2C1_SCL */
+  gpio_af_set(GPIOB, GPIO_AF_4, GPIO_PIN_10);
+  /* connect PB11 to I2C1_SDA */
+  gpio_af_set(GPIOB, GPIO_AF_4, GPIO_PIN_11);
+
+  /* configure GPIO pins of I2C1 */
+  gpio_mode_set(GPIOB, GPIO_MODE_AF, GPIO_PUPD_PULLUP, GPIO_PIN_10);
+  gpio_output_options_set(GPIOB, GPIO_OTYPE_OD, GPIO_OSPEED_50MHZ, GPIO_PIN_10);
+  gpio_mode_set(GPIOB, GPIO_MODE_AF, GPIO_PUPD_PULLUP, GPIO_PIN_11);
+  gpio_output_options_set(GPIOB, GPIO_OTYPE_OD, GPIO_OSPEED_50MHZ, GPIO_PIN_11);
+
+  i2c_clock_config(I2C1, 100000, I2C_DTCY_2);
+  /* I2C address configure */
+  i2c_mode_addr_config(I2C1, I2C_I2CMODE_ENABLE, I2C_ADDFORMAT_7BITS,
+                       I2C1_SLAVE_ADDRESS7);
+  /* enable I2C1 */
+  i2c_enable(I2C1);
+  /* enable acknowledge */
+  i2c_ack_config(I2C1, I2C_ACK_ENABLE);
+
+  nvic_irq_enable(I2C1_EV_IRQn, 0, 4);
+  nvic_irq_enable(I2C1_ER_IRQn, 0, 1);
+}
+
+void si2cLoop(void) {
+  for (uint8_t i = 0; i < 16; i++) {
+    i2c_buffer_transmitter[i] = i + 0xA0;
+  }
+  /* initialize i2c_txbuffer, i2c_rxbuffer, i2c_nbytes and status */
+  i2c_txbuffer = i2c_buffer_transmitter;
+  i2c_rxbuffer = i2c_buffer_receiver;
+  i2c_nbytes = 16;
+  status = ERROR;
+
+  /* enable the I2C0 interrupt */
+  i2c_interrupt_enable(I2C0, I2C_INT_ERR);
+  i2c_interrupt_enable(I2C0, I2C_INT_EV);
+  i2c_interrupt_enable(I2C0, I2C_INT_BUF);
+
+  /* enable the I2C1 interrupt */
+  i2c_interrupt_enable(I2C1, I2C_INT_ERR);
+  i2c_interrupt_enable(I2C1, I2C_INT_EV);
+  i2c_interrupt_enable(I2C1, I2C_INT_BUF);
+
+  /* the master waits until the I2C bus is idle */
+  while (i2c_flag_get(I2C0, I2C_FLAG_I2CBSY))
+    ;
+  /* the master sends a start condition to I2C bus */
+  i2c_start_on_bus(I2C0);
+
+  while (i2c_nbytes > 0)
+    ;
+  while (SUCCESS != status)
+    ;
+  /* if the transfer is successfully completed, LED1 and LED2 is on */
+  state = memory_compare(i2c_buffer_transmitter, i2c_buffer_receiver, 16);
+  if (SUCCESS == state) {
+    /* if success, LED1 and LED2 are on */
+
+  } else {
+    while (1)
+      ;
+  }
+  while (1) {
+  }
+}
+
 int main(void) {
   // led_test();
   // usb_gpio_init();
   // usbLoop();
   // mscLoop();
   // firmware_usbLoop();
+  // spi_master_init();
+  // spiLoop();
 
-  spi_master_init();
-
-  spiLoop();
-
+  mi2c0_init();
+  si2c_init();
+  si2cLoop();
   return 0;
 }

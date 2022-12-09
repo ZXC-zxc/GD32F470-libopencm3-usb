@@ -18,9 +18,7 @@
     \param[out] none
     \retval     none
 */
-void NMI_Handler(void)
-{
-}
+void NMI_Handler(void) {}
 
 /*!
     \brief      this function handles HardFault exception
@@ -28,11 +26,10 @@ void NMI_Handler(void)
     \param[out] none
     \retval     none
 */
-void HardFault_Handler(void)
-{
-    /* if Hard Fault exception occurs, go to infinite loop */
-    while (1){
-    }
+void HardFault_Handler(void) {
+  /* if Hard Fault exception occurs, go to infinite loop */
+  while (1) {
+  }
 }
 
 /*!
@@ -41,11 +38,10 @@ void HardFault_Handler(void)
     \param[out] none
     \retval     none
 */
-void MemManage_Handler(void)
-{
-    /* if Memory Manage exception occurs, go to infinite loop */
-    while (1){
-    }
+void MemManage_Handler(void) {
+  /* if Memory Manage exception occurs, go to infinite loop */
+  while (1) {
+  }
 }
 
 /*!
@@ -54,11 +50,10 @@ void MemManage_Handler(void)
     \param[out] none
     \retval     none
 */
-void BusFault_Handler(void)
-{
-    /* if Bus Fault exception occurs, go to infinite loop */
-    while (1){
-    }
+void BusFault_Handler(void) {
+  /* if Bus Fault exception occurs, go to infinite loop */
+  while (1) {
+  }
 }
 
 /*!
@@ -67,11 +62,10 @@ void BusFault_Handler(void)
     \param[out] none
     \retval     none
 */
-void UsageFault_Handler(void)
-{
-    /* if Usage Fault exception occurs, go to infinite loop */
-    while (1){
-    }
+void UsageFault_Handler(void) {
+  /* if Usage Fault exception occurs, go to infinite loop */
+  while (1) {
+  }
 }
 
 /*!
@@ -80,9 +74,7 @@ void UsageFault_Handler(void)
     \param[out] none
     \retval     none
 */
-void SVC_Handler(void)
-{
-}
+void SVC_Handler(void) {}
 
 /*!
     \brief      this function handles DebugMon exception
@@ -90,9 +82,7 @@ void SVC_Handler(void)
     \param[out] none
     \retval     none
 */
-void DebugMon_Handler(void)
-{
-}
+void DebugMon_Handler(void) {}
 
 /*!
     \brief      this function handles PendSV exception
@@ -100,9 +90,7 @@ void DebugMon_Handler(void)
     \param[out] none
     \retval     none
 */
-void PendSV_Handler(void)
-{
-}
+void PendSV_Handler(void) {}
 
 /*!
     \brief      this function handles SysTick exception
@@ -110,7 +98,50 @@ void PendSV_Handler(void)
     \param[out] none
     \retval     none
 */
-void SysTick_Handler(void)
-{
-    delay_decrement();
-}
+void SysTick_Handler(void) { delay_decrement(); }
+
+/* function declarations */
+/* handle I2C0 event interrupt request */
+extern void i2c0_event_irq_handler(void);
+/* handle I2C0 error interrupt request */
+extern void i2c0_error_irq_handler(void);
+/* handle I2C1 event interrupt request */
+extern void i2c1_event_irq_handler(void);
+/* handle I2C1 error interrupt request */
+extern void i2c1_error_irq_handler(void);
+
+extern void gd32i2c_ev_recv_isr(void);
+extern void gd32i2c_ev_send_isr(void);
+extern void gd32si2c_ev_isr(void);
+
+/*!
+    \brief      this function handles I2C0 event interrupt request exception
+    \param[in]  none
+    \param[out] none
+    \retval     none
+*/
+void I2C0_EV_IRQHandler(void) { i2c0_event_irq_handler(); }
+
+/*!
+    \brief      this function handles I2C0 error interrupt request exception
+    \param[in]  none
+    \param[out] none
+    \retval     none
+*/
+void I2C0_ER_IRQHandler(void) { i2c0_error_irq_handler(); }
+
+/*!
+    \brief      this function handles I2C1 event interrupt request exception
+    \param[in]  none
+    \param[out] none
+    \retval     none
+*/
+void I2C1_EV_IRQHandler(void) { gd32si2c_ev_isr(); }
+
+/*!
+    \brief      this function handles I2C1 error interrupt request exception
+    \param[in]  none
+    \param[out] none
+    \retval     none
+*/
+void I2C1_ER_IRQHandler(void) { i2c1_error_irq_handler(); }
