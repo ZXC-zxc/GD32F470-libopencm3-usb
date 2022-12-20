@@ -114,6 +114,9 @@ extern void gd32i2c_ev_recv_isr(void);
 extern void gd32i2c_ev_send_isr(void);
 extern void gd32si2c_ev_isr(void);
 
+extern void usart1_isr(void);
+extern void usart1_Ex_isr(void);
+
 /*!
     \brief      this function handles I2C0 event interrupt request exception
     \param[in]  none
@@ -145,3 +148,11 @@ void I2C1_EV_IRQHandler(void) { gd32si2c_ev_isr(); }
     \retval     none
 */
 void I2C1_ER_IRQHandler(void) { i2c1_error_irq_handler(); }
+
+/*!
+    \brief      this function handles USART0 exception
+    \param[in]  none
+    \param[out] none
+    \retval     none
+*/
+void USART1_IRQHandler(void) { usart1_Ex_isr(); }

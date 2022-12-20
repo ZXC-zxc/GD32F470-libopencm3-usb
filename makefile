@@ -24,6 +24,7 @@ INC_FLAGS= -I $(TOP)/gd_libs/GD32F4xx/Firmware/GD32F4xx_standard_peripheral/Incl
 		-I $(TOP)/bixin_i2c/mi2c  \
 		-I $(TOP)/bixin_i2c/si2c  \
 		-I $(TOP)/bixin_layout  \
+		-I $(TOP)/bixin_usart  \
 		-I $(TOP)/inc  \
 		-I $(TOP)/libopencm3/include \
 
@@ -63,6 +64,8 @@ C_SRC+=$(TOP)/libopencm3/lib/stm32/common/spi_common_all.c
 C_SRC+=$(TOP)/libopencm3/lib/stm32/common/spi_common_v1.c
 C_SRC+=$(TOP)/libopencm3/lib/stm32/common/spi_common_v1_frf.c
 C_SRC+=$(TOP)/libopencm3/lib/stm32/common/i2c_common_v1.c
+C_SRC+=$(TOP)/libopencm3/lib/stm32/common/usart_common_all.c
+C_SRC+=$(TOP)/libopencm3/lib/stm32/common/usart_common_f124.c
 
 # usb related
 C_SRC+=$(TOP)/libopencm3/lib/usb/usb.c
@@ -88,6 +91,7 @@ C_SRC+=$(TOP)/bixin_layout/oled.c
 C_SRC+=$(TOP)/bixin_layout/memzero.c
 # C_SRC+=$(TOP)/bixin_layout/timer.c
 C_SRC+=$(TOP)/bixin_i2c/si2c/si2c.c
+C_SRC+=$(TOP)/bixin_usart/usart.c
 
 C_OBJ=$(C_SRC:%.c=%.o)          
 

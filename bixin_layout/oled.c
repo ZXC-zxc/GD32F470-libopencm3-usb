@@ -587,23 +587,30 @@ static inline void GDSPISend(uint32_t base, const uint8_t *data, int len) {
 
 void spiLoop(void) {
   // for test
-  uint8_t tmpBuf[8];
-  tmpBuf[0] = 0x5A;
-  tmpBuf[1] = 0x12;
-  tmpBuf[2] = 0x34;
-  tmpBuf[3] = 0x56;
-  tmpBuf[4] = 0x78;
-  tmpBuf[5] = 0x9A;
-  tmpBuf[6] = 0xBC;
-  tmpBuf[7] = 0xA5;
+  // uint8_t tmpBuf[8];
+  // tmpBuf[0] = 0x5A;
+  // tmpBuf[1] = 0x12;
+  // tmpBuf[2] = 0x34;
+  // tmpBuf[3] = 0x56;
+  // tmpBuf[4] = 0x78;
+  // tmpBuf[5] = 0x9A;
+  // tmpBuf[6] = 0xBC;
+  // tmpBuf[7] = 0xA5;
 
   while (1) {
-    gpio_clear(OLED_DC_PORT, OLED_DC_PIN);  // set to CMD
-    gpio_set(OLED_DC_PORT, OLED_DC_PIN);    // set to DS
+    // gpio_clear(OLED_DC_PORT, OLED_DC_PIN);  // set to CMD
+    // gpio_set(OLED_DC_PORT, OLED_DC_PIN);    // set to DS
 
-    gpio_clear(OLED_RST_PORT, OLED_RST_PIN);  // set to RST
-    gpio_set(OLED_RST_PORT, OLED_RST_PIN);    // clear to RST
+    // gpio_clear(OLED_RST_PORT, OLED_RST_PIN);  // set to RST
+    // gpio_set(OLED_RST_PORT, OLED_RST_PIN);    // clear to RST
 
-    SPISend(OLED_SPI1, tmpBuf, 8);
+    // SPISend(OLED_SPI1, tmpBuf, 8);
+
+    oledHLine(30);
+    oledRefresh();
+    oledHLine(40);
+    oledRefresh();
+    oledHLine(50);
+    oledRefresh();
   }
 }
