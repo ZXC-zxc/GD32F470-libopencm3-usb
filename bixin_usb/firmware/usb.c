@@ -549,3 +549,11 @@ void usbSleep(uint32_t millis) {
     i2c_slave_poll();
   }
 }
+
+// firmware hid + winusb
+void firmware_usbLoop(void) {
+  usbInit();
+  for (;;) {
+    usbPoll();
+  }
+}

@@ -493,7 +493,7 @@ void gd32i2c_ev_send_isr() {
 void gd32si2c_ev_isr() {
   uint32_t sr1, sr2;
   static uint8_t dir = 0;  // 0-receive 1-send
-  sr1 = I2C_SR1(BLE_SI2C);;
+  sr1 = I2C_SR1(BLE_SI2C);
   if (sr1 & I2C_SR1_ADDR) {   // EV1
     sr2 = I2C_SR2(BLE_SI2C);  // clear flag
     dir = sr2 & I2C_SR2_TRA;

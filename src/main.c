@@ -10,92 +10,14 @@
 #include "gd32f4xx.h"
 #include "gd32f470i_eval.h"
 
-#define I2CX_OWN_ADDRESS7 0x20
-
 extern void usbLoop(void);
 extern void usbInit(void);
 extern void usbPoll(void);
 extern int led_test(void);
 extern void spiLoop(void);
+extern void firmware_usbLoop(void);
 void usartLoop(void);
 
-static void i2c_rcu_config(void) {
-  /* enable GPIOB clock */
-  rcu_periph_clock_enable(GPIO_MI2C_PORT);
-  /* enable I2C0 clock */
-  rcu_periph_clock_enable(RCU_I2C0);
-}
-
-static void i2c_gpio_config(void) {
-  /* I2C0 GPIO ports */
-  /* connect PB6 to I2C0_SCL */
-  gpio_af_set(GPIOB, GPIO_AF_4, GPIO_PIN_6);
-  /* connect PB7 to I2C0_SDA */
-  gpio_af_set(GPIOB, GPIO_AF_4, GPIO_PIN_7);
-
-  /* configure I2C0 GPIO */
-  gpio_mode_set(GPIOB, GPIO_MODE_AF, GPIO_PUPD_PULLUP, GPIO_PIN_6);
-  gpio_output_options_set(GPIOB, GPIO_OTYPE_OD, GPIO_OSPEED_50MHZ, GPIO_PIN_6);
-  gpio_mode_set(GPIOB, GPIO_MODE_AF, GPIO_PUPD_PULLUP, GPIO_PIN_7);
-  gpio_output_options_set(GPIOB, GPIO_OTYPE_OD, GPIO_OSPEED_50MHZ, GPIO_PIN_7);
-}
-
-static void i2c_config(void) {
-  /* configure I2C clock */
-  i2c_clock_config(I2C0, 100000, I2C_DTCY_2);
-  /* configure I2C address */
-  i2c_mode_addr_config(I2C0, I2C_I2CMODE_ENABLE, I2C_ADDFORMAT_7BITS,
-                       I2CX_OWN_ADDRESS7);
-  /* enable I2C0 */
-  i2c_enable(I2C0);
-  /* enable acknowledge */
-  i2c_ack_config(I2C0, I2C_ACK_ENABLE);
-}
-
-// mi2c driver loop
-void mi2cLoop(void) {
-  i2c_gpio_config();
-  i2c_rcu_config();
-  i2c_config();
-  for (;;) {
-  }
-}
-// firmware hid + winusb
-void firmware_usbLoop(void) {
-  usbInit();
-  for (;;) {
-    usbPoll();
-  }
-}
-
-// static void _spi_init(uint32_t spi_periph, spi_parameter_struct *spi_struct)
-// {
-//   uint32_t reg = 0U;
-//   reg = SPI_CTL0(spi_periph);
-//   reg &= SPI_INIT_MASK;
-
-//   /* select SPI as master or slave */
-//   reg |= spi_struct->device_mode;
-//   /* select SPI transfer mode */
-//   reg |= spi_struct->trans_mode;
-//   /* select SPI frame size */
-//   reg |= spi_struct->frame_size;
-//   /* select SPI nss use hardware or software */
-//   reg |= spi_struct->nss;
-//   /* select SPI LSB or MSB */
-//   reg |= spi_struct->endian;
-//   /* select SPI polarity and phase */
-//   reg |= spi_struct->clock_polarity_phase;
-//   /* select SPI prescale to adjust transmit speed */
-//   reg |= spi_struct->prescale;
-
-//   /* write to SPI_CTL0 register */
-//   SPI_CTL0(spi_periph) = (uint32_t)reg;
-
-//   SPI_I2SCTL(spi_periph) &= (uint32_t)(~SPI_I2SCTL_I2SSEL);
-// }
-
-extern void gd_spi_enable(uint32_t spi);
 static spi_master_init(void) {
   // enable SPI 1 for OLED display
   // gd32f470 : PI1-SPI1_SCK、 PI2-SPI1_MISO、PI3-SPI1_MOSI
@@ -156,9 +78,12 @@ static spi_master_init(void) {
   spi_enable(OLED_SPI1);
 }
 
+// #define TEST_RECV
+#define SE_I2C_ADDRESS7 0x72  // 0x20
+volatile uint8_t mi2c_se_transBuff[16];
+
 #define I2C0_SLAVE_ADDRESS7 0x82
 #define I2C1_SLAVE_ADDRESS7 0x72
-
 uint8_t i2c_buffer_transmitter[16];
 uint8_t i2c_buffer_receiver[16];
 volatile uint8_t *i2c_txbuffer;
@@ -184,7 +109,35 @@ ErrStatus memory_compare(uint8_t *src, uint8_t *dst, uint16_t length) {
   return SUCCESS;
 }
 
-void mi2c0_init(void) {
+static void mi2c0_init_common(void) {
+  /* enable GPIOB clock */
+  rcu_periph_clock_enable(RCU_GPIOB);
+  /* enable I2C0 clock */
+  rcu_periph_clock_enable(RCU_I2C0);
+  /* I2C0 GPIO ports */
+  /* connect PB6 to I2C0_SCL */
+  gpio_af_set(GPIOB, GPIO_AF_4, GPIO_PIN_6);
+  /* connect PB7 to I2C0_SDA */
+  gpio_af_set(GPIOB, GPIO_AF_4, GPIO_PIN_7);
+
+  /* configure I2C0 GPIO */
+  gpio_mode_set(GPIOB, GPIO_MODE_AF, GPIO_PUPD_PULLUP, GPIO_PIN_6);
+  gpio_output_options_set(GPIOB, GPIO_OTYPE_OD, GPIO_OSPEED_50MHZ, GPIO_PIN_6);
+  gpio_mode_set(GPIOB, GPIO_MODE_AF, GPIO_PUPD_PULLUP, GPIO_PIN_7);
+  gpio_output_options_set(GPIOB, GPIO_OTYPE_OD, GPIO_OSPEED_50MHZ, GPIO_PIN_7);
+
+  /* configure I2C clock */
+  i2c_clock_config(I2C0, 100000, I2C_DTCY_2);
+  /* configure I2C address */
+  i2c_mode_addr_config(I2C0, I2C_I2CMODE_ENABLE, I2C_ADDFORMAT_7BITS,
+                       I2C0_SLAVE_ADDRESS7);
+  /* enable I2C0 */
+  i2c_enable(I2C0);
+  /* enable acknowledge */
+  i2c_ack_config(I2C0, I2C_ACK_ENABLE);
+}
+
+void mi2c0_init_irq(void) {
   /* enable GPIOB clock */
   rcu_periph_clock_enable(RCU_GPIOB);
   /* enable I2C0 clock */
@@ -217,7 +170,7 @@ void mi2c0_init(void) {
   nvic_irq_enable(I2C0_ER_IRQn, 0, 2);
 }
 
-void si2c_init(void) {
+void si2c1_init_irq(void) {
   rcu_periph_clock_enable(RCU_I2C1);
   /* connect PB10 to I2C1_SCL */
   gpio_af_set(GPIOB, GPIO_AF_4, GPIO_PIN_10);
@@ -278,7 +231,12 @@ void si2c_libopencm3_init(void) {
   nvic_irq_enable(I2C1_ER_IRQn, 0, 1);
 }
 
-void si2cLoop(void) {
+// mi2c and si2c is irq
+void msi2c_irq_Loop(void) {
+  mi2c0_init_irq();
+  si2c1_init_irq();
+  // si2c_libopencm3_init();
+
   for (uint8_t i = 0; i < 16; i++) {
     i2c_buffer_transmitter[i] = i + 0xA0;
     i2c_buffer_receiver[i] = 0xFF;
@@ -294,10 +252,10 @@ void si2cLoop(void) {
   i2c_interrupt_enable(I2C0, I2C_INT_EV);
   i2c_interrupt_enable(I2C0, I2C_INT_BUF);
 
-  // /* enable the I2C1 interrupt */
-  // i2c_interrupt_enable(I2C1, I2C_INT_ERR);
-  // i2c_interrupt_enable(I2C1, I2C_INT_EV);
-  // i2c_interrupt_enable(I2C1, I2C_INT_BUF);
+  /* enable the I2C1 interrupt */
+  i2c_interrupt_enable(I2C1, I2C_INT_ERR);
+  i2c_interrupt_enable(I2C1, I2C_INT_EV);
+  i2c_interrupt_enable(I2C1, I2C_INT_BUF);
 
   /* the master waits until the I2C bus is idle */
   while (i2c_flag_get(I2C0, I2C_FLAG_I2CBSY))
@@ -320,21 +278,143 @@ void si2cLoop(void) {
   }
 }
 
+// mi2c poll and si2c irq. TEST_RECV is si2c switch
+void msi2c_com_Loop(void) {
+  uint8_t i;
+
+  mi2c0_init_common();
+  si2c1_init_irq();
+
+  i2c_txbuffer = i2c_buffer_transmitter;
+  i2c_rxbuffer = i2c_buffer_receiver;
+  i2c_nbytes = 16;
+  status = ERROR;
+
+  for (i = 0; i < 16; i++) {
+    mi2c_se_transBuff[i] = i + 0x80;
+    i2c_buffer_transmitter[i] = i + 0xA0;
+    i2c_buffer_receiver[i] = 0xFF;
+  }
+
+  /* enable the I2C1 interrupt */
+  i2c_interrupt_enable(I2C1, I2C_INT_ERR);
+  i2c_interrupt_enable(I2C1, I2C_INT_EV);
+  i2c_interrupt_enable(I2C1, I2C_INT_BUF);
+
+#ifdef TEST_RECV
+  // master send with poll and slave receive with irq
+  /* wait until I2C bus is idle */
+  while (i2c_flag_get(I2C0, I2C_FLAG_I2CBSY))
+    ;
+  /* send a start condition to I2C bus */
+  i2c_start_on_bus(I2C0);
+
+  /* wait until SBSEND bit is set */
+  while (!i2c_flag_get(I2C0, I2C_FLAG_SBSEND))
+    ;
+  /* send slave address to I2C bus */
+  i2c_master_addressing(I2C0, SE_I2C_ADDRESS7, I2C_TRANSMITTER);
+  /* wait until ADDSEND bit is set */
+  while (!i2c_flag_get(I2C0, I2C_FLAG_ADDSEND))
+    ;
+  /* clear ADDSEND bit */
+  i2c_flag_clear(I2C0, I2C_FLAG_ADDSEND);
+  /* wait until the transmit data buffer is empty */
+  while (!i2c_flag_get(I2C0, I2C_FLAG_TBE))
+    ;
+
+  for (i = 0; i < 16; i++) {
+    /* data transmission */
+    i2c_data_transmit(I2C0, mi2c_se_transBuff[i]);
+    /* wait until the TBE bit is set */
+    while (!i2c_flag_get(I2C0, I2C_FLAG_TBE))
+      ;
+  }
+  /* send a stop condition to I2C bus */
+  i2c_stop_on_bus(I2C0);
+  while (I2C_CTL0(I2C0) & I2C_CTL0_STOP)
+    ;
+
+  /* if the transfer is successfully completed, LED1 and LED2 is on */
+  state = memory_compare(mi2c_se_transBuff, i2c_buffer_receiver, 16);
+  if (SUCCESS == state) {
+    /* if success, LED1 and LED2 are on */
+    while (1) {
+    }
+  }
+
+#else
+  // master receive with poll and slave send with irq
+  /* wait until I2C bus is idle */
+  while (i2c_flag_get(I2C0, I2C_FLAG_I2CBSY))
+    ;
+  /* send a start condition to I2C bus */
+  i2c_start_on_bus(I2C0);
+  /* wait until SBSEND bit is set */
+  while (!i2c_flag_get(I2C0, I2C_FLAG_SBSEND))
+    ;
+  /* send slave address to I2C bus */
+  i2c_master_addressing(I2C0, I2C1_SLAVE_ADDRESS7, I2C_RECEIVER);
+  /* wait until ADDSEND bit is set */
+  while (!i2c_flag_get(I2C0, I2C_FLAG_ADDSEND))
+    ;
+  /* clear ADDSEND bit */
+  i2c_flag_clear(I2C0, I2C_FLAG_ADDSEND);
+
+  for (i = 0; i < 15; i++) {
+    /* wait until the RBNE bit is set */
+    while (!i2c_flag_get(I2C0, I2C_FLAG_RBNE))
+      ;
+    /* read a data from I2C_DATA */
+    i2c_rxbuffer[i] = i2c_data_receive(I2C0);
+  }
+  /* send a NACK for the last data byte */
+  i2c_ack_config(I2C0, I2C_ACK_DISABLE);
+
+  // /* send a data byte */
+  // i2c_data_transmit(I2C1, i2c_transmitter[i]);
+  // /* wait until the transmission data register is empty */
+  // while (!i2c_flag_get(I2C1, I2C_FLAG_TBE))
+  //   ;
+  // /* the master doesn't acknowledge for the last byte */
+  // while (!i2c_flag_get(I2C1, I2C_FLAG_AERR))
+  //   ;
+
+  /* send a stop condition to I2C bus */
+  i2c_stop_on_bus(I2C0);
+  while (I2C_CTL0(I2C0) & I2C_CTL0_STOP)
+    ;
+  i2c_rxbuffer[i] = i2c_data_receive(I2C0);
+  i2c_ack_config(I2C0, I2C_ACK_ENABLE);
+  /* clear the bit of AERR */
+  i2c_flag_clear(I2C1, I2C_FLAG_AERR);
+
+  /* compare the transmit buffer and the receive buffer */
+  state = memory_compare(i2c_buffer_transmitter, i2c_buffer_receiver, 16);
+  /* if success, LED1 and LED2 are on */
+  if (SUCCESS == state) {
+    while (1) {
+    }
+  }
+
+#endif
+  while (1) {
+  }
+}
+
 int main(void) {
   // led_test();
   // usb_gpio_init();
   // usbLoop();
-  // mscLoop();
+
   // firmware_usbLoop();
   // spi_master_init();
   // oledInit();
   // spiLoop();
-  // mi2c0_init();
-  // // si2c_init();
-  // si2c_libopencm3_init();
-  // si2cLoop();
+  // usartLoop();
+  // msi2c_irq_Loop();
 
-  usartLoop();
+  msi2c_com_Loop();
   return 0;
 }
 
