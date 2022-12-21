@@ -40,8 +40,14 @@
 
 // master I2C addr
 #define MI2C_ADDR 0x10
+#ifndef GD32F470
+#include "gd32f4xx.h"
+#define MI2C_READ I2C_RECEIVER
+#define MI2C_WRITE I2C_TRANSMITTER
+#else
 #define MI2C_READ 0x01
 #define MI2C_WRITE 0x00
+#endif
 
 #define MI2C_XOR_LEN (1)
 

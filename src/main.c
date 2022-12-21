@@ -84,7 +84,7 @@ volatile uint8_t mi2c_se_transBuff[16];
 
 #define I2C0_SLAVE_ADDRESS7 0x82
 #define I2C1_SLAVE_ADDRESS7 0x72
-uint8_t i2c_buffer_transmitter[16];
+uint8_t i2c_buffer_transmitter[32];
 uint8_t i2c_buffer_receiver[16];
 volatile uint8_t *i2c_txbuffer;
 volatile uint8_t *i2c_rxbuffer;
@@ -278,6 +278,281 @@ void msi2c_irq_Loop(void) {
   }
 }
 
+/* se mi2c driver */
+static uint8_t ucXorCheck(uint8_t ucInputXor, uint8_t *pucSrc, uint16_t usLen) {
+  uint16_t i;
+  uint8_t ucXor;
+
+  ucXor = ucInputXor;
+  for (i = 0; i < usLen; i++) {
+    ucXor ^= pucSrc[i];
+  }
+  return ucXor;
+}
+
+static bool bMI2CDRV_ReadBytes(uint32_t i2c, uint8_t *res,
+                               uint16_t *pusOutLen) {
+  volatile uint8_t ucLenBuf[2], ucSW[2], ucXor, ucXor1;
+  volatile uint16_t i, usRevLen, usTimeout, usRealLen;
+
+  ucXor = 0;
+  i = 0;
+  usRealLen = 0;
+  usTimeout = 0;
+
+  ucLenBuf[0] = 0x00;
+  ucLenBuf[1] = 0x00;
+
+  ucSW[0] = 0x00;
+  ucSW[1] = 0x00;
+
+  while (1) {
+    if (i > 5) {
+      return false;
+    }
+    usTimeout = 0;
+    while (i2c_flag_get(i2c, I2C_FLAG_I2CBSY)) {
+      usTimeout++;
+      if (usTimeout > MI2C_TIMEOUT) {
+        break;
+      }
+    }
+    i2c_start_on_bus(i2c);
+    usTimeout = 0;
+    while (!i2c_flag_get(I2C0, I2C_FLAG_SBSEND)) {
+      usTimeout++;
+      if (usTimeout > MI2C_TIMEOUT) {
+        break;
+      }
+    }
+    /* send slave address to I2C bus */
+    i2c_master_addressing(i2c, SE_I2C_ADDRESS7, I2C_RECEIVER);
+    usTimeout = 0;
+    // Waiting for address is transferred.
+    while (!i2c_flag_get(I2C0, I2C_FLAG_ADDSEND)) {
+      usTimeout++;
+      if (usTimeout > MI2C_TIMEOUT) {
+        break;
+      }
+    }
+    if (usTimeout > MI2C_TIMEOUT) {
+      usTimeout = 0;
+      i++;
+      continue;
+    }
+    /* clear ADDSEND bit */
+    i2c_flag_clear(i2c, I2C_FLAG_ADDSEND);
+    break;
+  }
+  // rev len
+  for (i = 0; i < 2; i++) {
+    usTimeout = 0;
+    while (!i2c_flag_get(i2c, I2C_FLAG_RBNE))
+      ;
+    /* read a data from I2C_DATA */
+    ucLenBuf[i] = i2c_data_receive(i2c);
+  }
+  // cal len xor
+  ucXor = ucXorCheck(ucXor, ucLenBuf, sizeof(ucLenBuf));
+  // len-SW1SW2
+  usRevLen = (ucLenBuf[0] << 8) + (ucLenBuf[1] & 0xFF) - 2;
+  if (usRevLen > 0 && (res == NULL)) {
+    i2c_stop_on_bus(i2c);
+    while (I2C_CTL0(i2c) & I2C_CTL0_STOP)
+      ;
+    return false;
+  }
+
+  // rev data
+  for (i = 0; i < usRevLen; i++) {
+    while (!i2c_flag_get(i2c, I2C_FLAG_RBNE))
+      ;
+    if (i < *pusOutLen) {
+      res[i] = i2c_data_receive(i2c);
+      // cal data xor
+      ucXor = ucXorCheck(ucXor, res + i, 1);
+      usRealLen++;
+    } else {
+      ucLenBuf[0] = i2c_data_receive(i2c);
+      ucXor = ucXorCheck(ucXor, ucLenBuf, 1);
+    }
+  }
+
+  // sw1 sw2 len
+  for (i = 0; i < 2; i++) {
+    /* wait until the RBNE bit is set */
+    while (!i2c_flag_get(i2c, I2C_FLAG_RBNE))
+      ;
+    ucSW[i] = i2c_data_receive(i2c);
+    usRealLen++;
+  }
+  // cal sw1sw2 xor
+  ucXor = ucXorCheck(ucXor, ucSW, sizeof(ucSW));
+
+  // xor len
+  /* send a NACK for the last data byte */
+  i2c_ack_config(i2c, I2C_ACK_DISABLE);
+  for (i = 0; i < MI2C_XOR_LEN; i++) {
+    while (!(I2C_SR1(i2c) & I2C_SR1_RxNE))
+      ;
+    ucXor1 = i2c_data_receive(i2c);
+    usRealLen++;
+  }
+
+  i2c_stop_on_bus(i2c);
+  while (I2C_CTL0(i2c) & I2C_CTL0_STOP)
+    ;
+  if (0x00 == usRealLen) {
+    return false;
+  }
+
+  if (ucXor != ucXor1) {
+    return false;
+  }
+  usRealLen -= MI2C_XOR_LEN;
+
+  if ((0x90 != ucSW[0]) || (0x00 != ucSW[1])) {
+    if (ucSW[0] == 0x6c) {
+      res[0] = ucSW[1];
+      *pusOutLen = 1;
+    } else {
+      *pusOutLen = usRealLen - 2;
+    }
+    return false;
+  }
+  *pusOutLen = usRealLen - 2;
+  return true;
+}
+
+static bool bMI2CDRV_WriteBytes(uint32_t i2c, uint8_t *data,
+                                uint16_t ucSendLen) {
+  volatile uint8_t ucLenBuf[2], ucXor = 0;
+  volatile uint16_t i, usTimeout = 0;
+
+  i = 0;
+  while (1) {
+    if (i > 5) {
+      return false;
+    }
+    /* send a start condition to I2C bus */
+    i2c_start_on_bus(i2c);
+    while (!i2c_flag_get(i2c, I2C_FLAG_SBSEND)) {
+      usTimeout++;
+      if (usTimeout > MI2C_TIMEOUT) {
+        break;
+      }
+    }
+
+    /* send slave address to I2C bus */
+    i2c_master_addressing(i2c, SE_I2C_ADDRESS7, I2C_TRANSMITTER);
+    usTimeout = 0;
+    /* wait until ADDSEND bit is set */
+    while (!i2c_flag_get(i2c, I2C_FLAG_ADDSEND)) {
+      usTimeout++;
+      if (usTimeout > MI2C_TIMEOUT) {
+        break;
+      }
+    }
+    if (usTimeout > MI2C_TIMEOUT) {
+      i++;
+      usTimeout = 0;
+      continue;
+    }
+    /* clear ADDSEND bit */
+    i2c_flag_clear(i2c, I2C_FLAG_ADDSEND);
+    break;
+  }
+  // send L + V + xor
+  ucLenBuf[0] = ((ucSendLen >> 8) & 0xFF);
+  ucLenBuf[1] = ucSendLen & 0xFF;
+  // len xor
+  ucXor = ucXorCheck(ucXor, ucLenBuf, sizeof(ucLenBuf));
+  // send len
+  for (i = 0; i < 2; i++) {
+    i2c_data_transmit(i2c, ucLenBuf[i]);
+    usTimeout = 0;
+    while (!i2c_flag_get(I2C0, I2C_FLAG_TBE)) {
+      usTimeout++;
+      if (usTimeout > MI2C_TIMEOUT) {
+        return false;
+      }
+    }
+  }
+  // cal xor
+  ucXor = ucXorCheck(ucXor, data, ucSendLen);
+  // send data
+  for (i = 0; i < ucSendLen; i++) {
+    i2c_data_transmit(i2c, data[i]);
+    usTimeout = 0;
+    while (!i2c_flag_get(i2c, I2C_FLAG_TBE)) {
+      usTimeout++;
+      if (usTimeout > MI2C_TIMEOUT) {
+        return false;
+      }
+    }
+  }
+  // send Xor
+  i2c_data_transmit(i2c, ucXor);
+  usTimeout = 0;
+  while (!i2c_flag_get(i2c, I2C_FLAG_TBE)) {
+    usTimeout++;
+    if (usTimeout > MI2C_TIMEOUT) {
+      return false;
+    }
+  }
+
+  i2c_stop_on_bus(i2c);
+  usTimeout = 0;
+  while (I2C_CTL0(i2c) & I2C_CTL0_STOP) {
+    usTimeout++;
+    if (usTimeout > MI2C_TIMEOUT) {
+      return false;
+    }
+  }
+  //  delay_us(100);
+  return true;
+}
+
+// static void gd32mi2c_recv(void) {
+//   /* wait until I2C bus is idle */
+//   while (i2c_flag_get(I2C0, I2C_FLAG_I2CBSY))
+//     ;
+//   /* send a start condition to I2C bus */
+//   i2c_start_on_bus(I2C0);
+//   /* wait until SBSEND bit is set */
+//   while (!i2c_flag_get(I2C0, I2C_FLAG_SBSEND))
+//     ;
+//   /* send slave address to I2C bus */
+//   i2c_master_addressing(I2C0, I2C1_SLAVE_ADDRESS7, I2C_RECEIVER);
+//   /* wait until ADDSEND bit is set */
+//   while (!i2c_flag_get(I2C0, I2C_FLAG_ADDSEND))
+//     ;
+//   /* clear ADDSEND bit */
+//   i2c_flag_clear(I2C0, I2C_FLAG_ADDSEND);
+
+//   for (uint8_t i = 0; i < 15; i++) {
+//     /* wait until the RBNE bit is set */
+//     while (!i2c_flag_get(I2C0, I2C_FLAG_RBNE))
+//       ;
+//     /* read a data from I2C_DATA */
+//     i2c_rxbuffer[i] = i2c_data_receive(I2C0);
+//   }
+//   /* send a NACK for the last data byte */
+//   i2c_ack_config(I2C0, I2C_ACK_DISABLE);
+
+//   /* send a stop condition to I2C bus */
+//   i2c_stop_on_bus(I2C0);
+//   while (I2C_CTL0(I2C0) & I2C_CTL0_STOP)
+//     ;
+//   i2c_rxbuffer[i] = i2c_data_receive(I2C0);
+//   i2c_ack_config(I2C0, I2C_ACK_ENABLE);
+//   /* clear the bit of AERR */
+//   i2c_flag_clear(I2C1, I2C_FLAG_AERR);
+// }
+
+uint8_t g_ucRandCmd[5] = {0x00, 0x84, 0x00, 0x00, 0x10};
+uint8_t g_ucRecvBuf[32];
+
 // mi2c poll and si2c irq. TEST_RECV is si2c switch
 void msi2c_com_Loop(void) {
   uint8_t i;
@@ -296,6 +571,11 @@ void msi2c_com_Loop(void) {
     i2c_buffer_receiver[i] = 0xFF;
   }
 
+  memcpy(i2c_buffer_transmitter,
+         "\x00\x12\xBC\x52\x17\x65\xA4\xE7\x9D\x3D\x67\xEE\x6E\x67\xC7\xDA\x85"
+         "\xC8\x90\x00\x2D",
+         21);
+
   /* enable the I2C1 interrupt */
   i2c_interrupt_enable(I2C1, I2C_INT_ERR);
   i2c_interrupt_enable(I2C1, I2C_INT_EV);
@@ -303,40 +583,51 @@ void msi2c_com_Loop(void) {
 
 #ifdef TEST_RECV
   // master send with poll and slave receive with irq
-  /* wait until I2C bus is idle */
-  while (i2c_flag_get(I2C0, I2C_FLAG_I2CBSY))
-    ;
-  /* send a start condition to I2C bus */
-  i2c_start_on_bus(I2C0);
+  // /* wait until I2C bus is idle */
+  // while (i2c_flag_get(I2C0, I2C_FLAG_I2CBSY))
+  //   ;
+  // /* send a start condition to I2C bus */
+  // i2c_start_on_bus(I2C0);
 
-  /* wait until SBSEND bit is set */
-  while (!i2c_flag_get(I2C0, I2C_FLAG_SBSEND))
-    ;
-  /* send slave address to I2C bus */
-  i2c_master_addressing(I2C0, SE_I2C_ADDRESS7, I2C_TRANSMITTER);
-  /* wait until ADDSEND bit is set */
-  while (!i2c_flag_get(I2C0, I2C_FLAG_ADDSEND))
-    ;
-  /* clear ADDSEND bit */
-  i2c_flag_clear(I2C0, I2C_FLAG_ADDSEND);
-  /* wait until the transmit data buffer is empty */
-  while (!i2c_flag_get(I2C0, I2C_FLAG_TBE))
-    ;
+  // /* wait until SBSEND bit is set */
+  // while (!i2c_flag_get(I2C0, I2C_FLAG_SBSEND))
+  //   ;
+  // /* send slave address to I2C bus */
+  // i2c_master_addressing(I2C0, SE_I2C_ADDRESS7, I2C_TRANSMITTER);
+  // /* wait until ADDSEND bit is set */
+  // while (!i2c_flag_get(I2C0, I2C_FLAG_ADDSEND))
+  //   ;
+  // /* clear ADDSEND bit */
+  // i2c_flag_clear(I2C0, I2C_FLAG_ADDSEND);
+  // /* wait until the transmit data buffer is empty */
+  // while (!i2c_flag_get(I2C0, I2C_FLAG_TBE))
+  //   ;
 
-  for (i = 0; i < 16; i++) {
-    /* data transmission */
-    i2c_data_transmit(I2C0, mi2c_se_transBuff[i]);
-    /* wait until the TBE bit is set */
-    while (!i2c_flag_get(I2C0, I2C_FLAG_TBE))
-      ;
-  }
-  /* send a stop condition to I2C bus */
-  i2c_stop_on_bus(I2C0);
-  while (I2C_CTL0(I2C0) & I2C_CTL0_STOP)
-    ;
+  // for (i = 0; i < 16; i++) {
+  //   /* data transmission */
+  //   i2c_data_transmit(I2C0, mi2c_se_transBuff[i]);
+  //   /* wait until the TBE bit is set */
+  //   while (!i2c_flag_get(I2C0, I2C_FLAG_TBE))
+  //     ;
+  // }
+  // /* send a stop condition to I2C bus */
+  // i2c_stop_on_bus(I2C0);
+  // while (I2C_CTL0(I2C0) & I2C_CTL0_STOP)
+  //   ;
 
-  /* if the transfer is successfully completed, LED1 and LED2 is on */
-  state = memory_compare(mi2c_se_transBuff, i2c_buffer_receiver, 16);
+  // /* if the transfer is successfully completed, LED1 and LED2 is on */
+  // state = memory_compare(mi2c_se_transBuff, i2c_buffer_receiver, 16);
+  // if (SUCCESS == state) {
+  //   /* if success, LED1 and LED2 are on */
+  //   while (1) {
+  //   }
+  // }
+
+  // while (i2c_flag_get(I2C0, I2C_FLAG_I2CBSY))
+  //   ;
+
+  bMI2CDRV_WriteBytes(I2C0, g_ucRandCmd, 5);
+  state = memory_compare(g_ucRandCmd, i2c_buffer_receiver + 2, 5);
   if (SUCCESS == state) {
     /* if success, LED1 and LED2 are on */
     while (1) {
@@ -345,58 +636,65 @@ void msi2c_com_Loop(void) {
 
 #else
   // master receive with poll and slave send with irq
-  /* wait until I2C bus is idle */
-  while (i2c_flag_get(I2C0, I2C_FLAG_I2CBSY))
-    ;
-  /* send a start condition to I2C bus */
-  i2c_start_on_bus(I2C0);
-  /* wait until SBSEND bit is set */
-  while (!i2c_flag_get(I2C0, I2C_FLAG_SBSEND))
-    ;
-  /* send slave address to I2C bus */
-  i2c_master_addressing(I2C0, I2C1_SLAVE_ADDRESS7, I2C_RECEIVER);
-  /* wait until ADDSEND bit is set */
-  while (!i2c_flag_get(I2C0, I2C_FLAG_ADDSEND))
-    ;
-  /* clear ADDSEND bit */
-  i2c_flag_clear(I2C0, I2C_FLAG_ADDSEND);
-
-  for (i = 0; i < 15; i++) {
-    /* wait until the RBNE bit is set */
-    while (!i2c_flag_get(I2C0, I2C_FLAG_RBNE))
-      ;
-    /* read a data from I2C_DATA */
-    i2c_rxbuffer[i] = i2c_data_receive(I2C0);
-  }
-  /* send a NACK for the last data byte */
-  i2c_ack_config(I2C0, I2C_ACK_DISABLE);
-
-  // /* send a data byte */
-  // i2c_data_transmit(I2C1, i2c_transmitter[i]);
-  // /* wait until the transmission data register is empty */
-  // while (!i2c_flag_get(I2C1, I2C_FLAG_TBE))
+  // /* wait until I2C bus is idle */
+  // while (i2c_flag_get(I2C0, I2C_FLAG_I2CBSY))
   //   ;
-  // /* the master doesn't acknowledge for the last byte */
-  // while (!i2c_flag_get(I2C1, I2C_FLAG_AERR))
+  // /* send a start condition to I2C bus */
+  // i2c_start_on_bus(I2C0);
+  // /* wait until SBSEND bit is set */
+  // while (!i2c_flag_get(I2C0, I2C_FLAG_SBSEND))
   //   ;
+  // /* send slave address to I2C bus */
+  // i2c_master_addressing(I2C0, I2C1_SLAVE_ADDRESS7, I2C_RECEIVER);
+  // /* wait until ADDSEND bit is set */
+  // while (!i2c_flag_get(I2C0, I2C_FLAG_ADDSEND))
+  //   ;
+  // /* clear ADDSEND bit */
+  // i2c_flag_clear(I2C0, I2C_FLAG_ADDSEND);
 
-  /* send a stop condition to I2C bus */
-  i2c_stop_on_bus(I2C0);
-  while (I2C_CTL0(I2C0) & I2C_CTL0_STOP)
-    ;
-  i2c_rxbuffer[i] = i2c_data_receive(I2C0);
-  i2c_ack_config(I2C0, I2C_ACK_ENABLE);
-  /* clear the bit of AERR */
-  i2c_flag_clear(I2C1, I2C_FLAG_AERR);
+  // for (i = 0; i < 15; i++) {
+  //   /* wait until the RBNE bit is set */
+  //   while (!i2c_flag_get(I2C0, I2C_FLAG_RBNE))
+  //     ;
+  //   /* read a data from I2C_DATA */
+  //   i2c_rxbuffer[i] = i2c_data_receive(I2C0);
+  // }
+  // /* send a NACK for the last data byte */
+  // i2c_ack_config(I2C0, I2C_ACK_DISABLE);
 
-  /* compare the transmit buffer and the receive buffer */
-  state = memory_compare(i2c_buffer_transmitter, i2c_buffer_receiver, 16);
-  /* if success, LED1 and LED2 are on */
+  // // /* send a data byte */
+  // // i2c_data_transmit(I2C1, i2c_transmitter[i]);
+  // // /* wait until the transmission data register is empty */
+  // // while (!i2c_flag_get(I2C1, I2C_FLAG_TBE))
+  // //   ;
+  // // /* the master doesn't acknowledge for the last byte */
+  // // while (!i2c_flag_get(I2C1, I2C_FLAG_AERR))
+  // //   ;
+
+  // /* send a stop condition to I2C bus */
+  // i2c_stop_on_bus(I2C0);
+  // while (I2C_CTL0(I2C0) & I2C_CTL0_STOP)
+  //   ;
+  // i2c_rxbuffer[i] = i2c_data_receive(I2C0);
+  // i2c_ack_config(I2C0, I2C_ACK_ENABLE);
+  // /* clear the bit of AERR */
+  // i2c_flag_clear(I2C1, I2C_FLAG_AERR);
+
+  // /* compare the transmit buffer and the receive buffer */
+  // state = memory_compare(i2c_buffer_transmitter, i2c_buffer_receiver, 16);
+  // /* if success, LED1 and LED2 are on */
+  // if (SUCCESS == state) {
+  //   while (1) {
+  //   }
+  // }
+  volatile uint16_t retLen = 0xff;
+  bMI2CDRV_ReadBytes(I2C0, g_ucRecvBuf, &retLen);
+  state = memory_compare(i2c_buffer_transmitter + 2, g_ucRecvBuf, retLen);
   if (SUCCESS == state) {
+    /* if success, LED1 and LED2 are on */
     while (1) {
     }
   }
-
 #endif
   while (1) {
   }

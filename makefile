@@ -90,6 +90,7 @@ C_SRC+=$(TOP)/bixin_usb/firmware/usb.c
 C_SRC+=$(TOP)/bixin_layout/oled.c
 C_SRC+=$(TOP)/bixin_layout/memzero.c
 # C_SRC+=$(TOP)/bixin_layout/timer.c
+C_SRC+=$(TOP)/bixin_i2c/mi2c/mi2c.c
 C_SRC+=$(TOP)/bixin_i2c/si2c/si2c.c
 C_SRC+=$(TOP)/bixin_usart/usart.c
 
