@@ -24,6 +24,10 @@ extern ChannelType host_channel;
 #define GPIO_SI2C_SCL GPIO10
 #define GPIO_SI2C_SDA GPIO11
 
+// combus gpio
+#define GPIO_CMBUS_PORT GPIOC
+#define GPIO_SI2C_CMBUS GPIO9
+
 #define SI2C_ADDR 0x48  // 90
 
 extern volatile uint32_t i2c_data_inlen;

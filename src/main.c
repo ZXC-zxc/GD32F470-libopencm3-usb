@@ -79,11 +79,18 @@ static spi_master_init(void) {
 }
 
 // #define TEST_RECV
-#define SE_I2C_ADDRESS7 0x72  // 0x20
+#define SE_I2C_ADDRESS7 0x20  // 0x72
+#define SI2C_ADDR 0x48        // 90
+
 volatile uint8_t mi2c_se_transBuff[16];
 
 #define I2C0_SLAVE_ADDRESS7 0x82
-#define I2C1_SLAVE_ADDRESS7 0x72
+#define I2C1_SLAVE_ADDRESS7 SI2C_ADDR  // 0x72
+
+// combus io level
+#define SET_COMBUS_HIGH() (gpio_set(GPIO_CMBUS_PORT, GPIO_SI2C_CMBUS))
+#define SET_COMBUS_LOW() (gpio_clear(GPIO_CMBUS_PORT, GPIO_SI2C_CMBUS))
+
 uint8_t i2c_buffer_transmitter[32];
 uint8_t i2c_buffer_receiver[16];
 volatile uint8_t *i2c_txbuffer;
@@ -128,9 +135,9 @@ static void mi2c0_init_common(void) {
 
   /* configure I2C clock */
   i2c_clock_config(I2C0, 100000, I2C_DTCY_2);
-  /* configure I2C address */
-  i2c_mode_addr_config(I2C0, I2C_I2CMODE_ENABLE, I2C_ADDFORMAT_7BITS,
-                       I2C0_SLAVE_ADDRESS7);
+  // /* configure I2C address for slave mode*/
+  // i2c_mode_addr_config(I2C0, I2C_I2CMODE_ENABLE, I2C_ADDFORMAT_7BITS,
+  //                      I2C0_SLAVE_ADDRESS7);
   /* enable I2C0 */
   i2c_enable(I2C0);
   /* enable acknowledge */
@@ -229,6 +236,14 @@ void si2c_libopencm3_init(void) {
 
   nvic_irq_enable(I2C1_EV_IRQn, 0, 4);
   nvic_irq_enable(I2C1_ER_IRQn, 0, 1);
+}
+
+void comBus_init(void) {
+  rcc_periph_clock_enable(RCC_GPIOC);
+  // combus
+  gpio_mode_setup(GPIO_CMBUS_PORT, GPIO_MODE_OUTPUT, GPIO_PUPD_PULLDOWN,
+                  GPIO_SI2C_CMBUS);
+  SET_COMBUS_LOW();
 }
 
 // mi2c and si2c is irq
@@ -557,6 +572,7 @@ uint8_t g_ucRecvBuf[32];
 void msi2c_com_Loop(void) {
   uint8_t i;
 
+  comBus_init();
   mi2c0_init_common();
   si2c1_init_irq();
 
@@ -626,7 +642,11 @@ void msi2c_com_Loop(void) {
   // while (i2c_flag_get(I2C0, I2C_FLAG_I2CBSY))
   //   ;
 
+  volatile uint16_t retLen = 0xff;
   bMI2CDRV_WriteBytes(I2C0, g_ucRandCmd, 5);
+  bMI2CDRV_ReadBytes(I2C0, g_ucRecvBuf, &retLen);
+  while (1)
+    ;
   state = memory_compare(g_ucRandCmd, i2c_buffer_receiver + 2, 5);
   if (SUCCESS == state) {
     /* if success, LED1 and LED2 are on */
@@ -636,7 +656,7 @@ void msi2c_com_Loop(void) {
 
 #else
   // master receive with poll and slave send with irq
-  // /* wait until I2C bus is idle */
+  /* wait until I2C bus is idle */
   // while (i2c_flag_get(I2C0, I2C_FLAG_I2CBSY))
   //   ;
   // /* send a start condition to I2C bus */
@@ -687,14 +707,28 @@ void msi2c_com_Loop(void) {
   //   while (1) {
   //   }
   // }
-  volatile uint16_t retLen = 0xff;
-  bMI2CDRV_ReadBytes(I2C0, g_ucRecvBuf, &retLen);
-  state = memory_compare(i2c_buffer_transmitter + 2, g_ucRecvBuf, retLen);
-  if (SUCCESS == state) {
-    /* if success, LED1 and LED2 are on */
-    while (1) {
-    }
+  // volatile uint16_t retLen = 0xff;
+  // bMI2CDRV_ReadBytes(I2C0, g_ucRecvBuf, &retLen);
+  // state = memory_compare(i2c_buffer_transmitter + 2, g_ucRecvBuf, retLen);
+  // if (SUCCESS == state) {
+  //   /* if success, LED1 and LED2 are on */
+  //   while (1) {
+  //   }
+  // }
+
+  while (i2c_nbytes != 0) {
+    ;
   }
+  // 判断数据正确性
+  if ((0x5a == i2c_buffer_receiver[0]) && (0xa5 == i2c_buffer_receiver[15])) {
+    memcpy(i2c_buffer_transmitter, i2c_buffer_receiver, 16);
+    SET_COMBUS_HIGH();
+  } else {
+    SET_COMBUS_LOW();
+  }
+
+  while (1)
+    ;
 #endif
   while (1) {
   }

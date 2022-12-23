@@ -503,6 +503,7 @@ void gd32si2c_ev_isr() {
     //   layoutError("buffer overflow", "i2c receive");
     // }
     *i2c_rxbuffer++ = i2c_get_data(BLE_SI2C);
+    i2c_nbytes--;
   }
   if (dir & I2C_SR2_TRA) {
     if ((sr1 & I2C_SR1_TxE) || (sr1 & I2C_SR1_BTF)) {
