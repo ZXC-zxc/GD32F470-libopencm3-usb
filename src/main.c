@@ -792,6 +792,11 @@ static void ble_gd32usart_init(void) {
   nvic_irq_enable(USART1_IRQn, 0, 0);
   /* USART1 baudrate configuration */
   usart_baudrate_set(USART1, 115200);
+  usart_word_length_set(USART1, USART_WL_8BIT);
+  usart_parity_config(USART1, USART_PM_NONE);
+  usart_stop_bit_set(USART1, USART_STB_1BIT);
+  usart_hardware_flow_rts_config(USART1, USART_RTS_DISABLE);
+  usart_hardware_flow_cts_config(USART1, USART_CTS_DISABLE);
   /* configure USART1 transmitter */
   usart_transmit_config(USART1, USART_TRANSMIT_ENABLE);
   /* configure USART1 receiver */
@@ -809,6 +814,11 @@ void usartLoop(void) {
   recvCunt = 0;
 
 #if 1
+  for (uint8_t i = 0; i < 18; i++) {
+    transmitter_buffer[i] = 0x5a;
+    // receiver_buffer1[i] = 0xFF;
+  }
+
   ble_gd32usart_init();
 #else
   // libopencm3 init usart1
@@ -817,11 +827,6 @@ void usartLoop(void) {
 
   // for (uint8_t i = 0; i < 64; i++) {
   //   recvBuf[i] = 0xFF;
-  // }
-
-  // for (uint8_t i = 0; i < TRANSMIT_SIZE; i++) {
-  //   receiver_buffer0[i] = 0xFF;
-  //   receiver_buffer1[i] = 0xFF;
   // }
 
   /* USART0 transmit and USART1 receive */
@@ -853,6 +858,11 @@ void usartLoop(void) {
 #else
   /* 与nordic52832调试usart功能*/
   /* 判断数据正确性 */
+  transmitter_buffer[0] = 0xa1;
+  transmitter_buffer[17] = 0xb2;
+  ble_usart_send(transmitter_buffer, 18);
+  while (1)
+    ;
 
   while (recvCunt != 0x12) {
     ;
