@@ -80,7 +80,7 @@ static spi_master_init(void) {
 
 // #define TEST_RECV
 #define SE_I2C_ADDRESS7 0x20  // 0x72
-#define SI2C_ADDR 0x48        // 90
+#define SI2C_ADDR 0x90        // 90
 
 volatile uint8_t mi2c_se_transBuff[16];
 
@@ -92,7 +92,7 @@ volatile uint8_t mi2c_se_transBuff[16];
 #define SET_COMBUS_LOW() (gpio_clear(GPIO_CMBUS_PORT, GPIO_SI2C_CMBUS))
 
 uint8_t i2c_buffer_transmitter[32];
-uint8_t i2c_buffer_receiver[16];
+uint8_t i2c_buffer_receiver[32];
 volatile uint8_t *i2c_txbuffer;
 volatile uint8_t *i2c_rxbuffer;
 volatile uint16_t i2c_nbytes;
@@ -259,7 +259,7 @@ void msi2c_irq_Loop(void) {
   /* initialize i2c_txbuffer, i2c_rxbuffer, i2c_nbytes and status */
   i2c_txbuffer = i2c_buffer_transmitter;
   i2c_rxbuffer = i2c_buffer_receiver;
-  i2c_nbytes = 16;
+  i2c_nbytes = 18;
   status = ERROR;
 
   /* enable the I2C0 interrupt */
@@ -578,7 +578,7 @@ void msi2c_com_Loop(void) {
 
   i2c_txbuffer = i2c_buffer_transmitter;
   i2c_rxbuffer = i2c_buffer_receiver;
-  i2c_nbytes = 16;
+  i2c_nbytes = 18;
   status = ERROR;
 
   for (i = 0; i < 16; i++) {
@@ -720,8 +720,8 @@ void msi2c_com_Loop(void) {
     ;
   }
   // 判断数据正确性
-  if ((0x5a == i2c_buffer_receiver[0]) && (0xa5 == i2c_buffer_receiver[15])) {
-    memcpy(i2c_buffer_transmitter, i2c_buffer_receiver, 16);
+  if ((0x5a == i2c_buffer_receiver[0]) && (0xa5 == i2c_buffer_receiver[17])) {
+    memcpy(i2c_buffer_transmitter, i2c_buffer_receiver, 18);
     SET_COMBUS_HIGH();
   } else {
     SET_COMBUS_LOW();
@@ -743,10 +743,9 @@ int main(void) {
   // spi_master_init();
   // oledInit();
   // spiLoop();
-  // usartLoop();
+  usartLoop();
   // msi2c_irq_Loop();
-
-  msi2c_com_Loop();
+  // msi2c_com_Loop();
   return 0;
 }
 
@@ -765,6 +764,9 @@ __IO uint8_t txcount1 = 0;
 __IO uint16_t rxcount1 = 0;
 // ErrStatus state = ERROR;
 
+volatile uint8_t recvBuf[64];
+volatile uint8_t recvCunt = 0;
+
 void usart1_isr(void) {
   // if ((RESET != usart_interrupt_flag_get(USART1, USART_INT_FLAG_RBNE)) &&
   //     (RESET != usart_flag_get(USART1, USART_FLAG_RBNE))) {
@@ -775,35 +777,7 @@ void usart1_isr(void) {
   }
 }
 
-/*!
-    \brief      main function
-    \param[in]  none
-    \param[out] none
-    \retval     none
-*/
-void usartLoop(void) {
-  /* enable USART and GPIOA clock */
-  rcu_periph_clock_enable(RCU_GPIOA);
-#if 0 
- /*configure USART0*/
-  rcu_periph_clock_enable(RCU_USART0);
-  gpio_af_set(GPIOA, GPIO_AF_7,
-              GPIO_PIN_9 | GPIO_PIN_10);  // USART0 PIN9 -> TX, PIN10 -> RX
-
-  /* configure USART0 TX as alternate function push-pull */
-  gpio_mode_set(GPIOA, GPIO_MODE_AF, GPIO_PUPD_PULLUP,
-                GPIO_PIN_9 | GPIO_PIN_10);
-  gpio_output_options_set(GPIOA, GPIO_OTYPE_PP, GPIO_OSPEED_50MHZ,
-                          GPIO_PIN_9 | GPIO_PIN_10);
-  /* USART0 baudrate configuration */
-  usart_baudrate_set(USART0, 115200);
-  /* configure USART0 transmitter */
-  usart_transmit_config(USART0, USART_TRANSMIT_ENABLE);
-  /* configure USART0 receiver */
-  usart_receive_config(USART0, USART_RECEIVE_ENABLE);
-  /* enable USART0 */
-  gd32usart_enable(USART0);
-// #if 0
+static void ble_gd32usart_init(void) {
   /*configure USART1*/
   rcu_periph_clock_enable(RCU_USART1);
   /* configure the USART1 TX pin and RX pin*/
@@ -825,15 +799,30 @@ void usartLoop(void) {
   /* enable USART1 */
   gd32usart_enable(USART1);
   usart_interrupt_enable(USART1, USART_INT_RBNE);
+}
+
+void usartLoop(void) {
+  /* enable USART and GPIOA clock */
+  rcu_periph_clock_enable(RCU_GPIOA);
+  comBus_init();
+  SET_COMBUS_LOW();
+  recvCunt = 0;
+
+#if 1
+  ble_gd32usart_init();
 #else
   // libopencm3 init usart1
   ble_usart_init();
 #endif
 
-  for (uint8_t i = 0; i < TRANSMIT_SIZE; i++) {
-    receiver_buffer0[i] = 0xFF;
-    receiver_buffer1[i] = 0xFF;
-  }
+  // for (uint8_t i = 0; i < 64; i++) {
+  //   recvBuf[i] = 0xFF;
+  // }
+
+  // for (uint8_t i = 0; i < TRANSMIT_SIZE; i++) {
+  //   receiver_buffer0[i] = 0xFF;
+  //   receiver_buffer1[i] = 0xFF;
+  // }
 
   /* USART0 transmit and USART1 receive */
   // while (transfersize--) {
@@ -848,8 +837,8 @@ void usartLoop(void) {
   //     ;
   //   usart_data_transmit(USART1, transmitter_buffer[txcount1++]);
   // }
-
-  /* 开发板需要短接 PA2 == PA3*/
+#ifdef TEST_SELF
+  /* 开发板需要短接 PA2(TX) == PA3(RX)*/
   /* 断点停住后查看recvBuf中值是否与transmitter_buffer相同*/
   ble_usart_send(transmitter_buffer, sizeof(transmitter_buffer));
   /* compare the received data with the send ones */
@@ -861,6 +850,25 @@ void usartLoop(void) {
       ;
     }
   }
+#else
+  /* 与nordic52832调试usart功能*/
+  /* 判断数据正确性 */
+
+  while (recvCunt != 0x12) {
+    ;
+  }
+
+  if ((0x5a == recvBuf[0]) && (0xa5 == recvBuf[17])) {
+    SET_COMBUS_HIGH();
+    memcpy(transmitter_buffer, recvBuf, 18);
+    ble_usart_send(transmitter_buffer, 18);
+  } else {  // 0xff
+    SET_COMBUS_LOW();
+  }
+
+  while (1)
+    ;
+#endif
   // /* USART1 transmit and USART0 receive */
   // transfersize = TRANSMIT_SIZE;
   // while (transfersize--) {

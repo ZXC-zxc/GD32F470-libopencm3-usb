@@ -187,10 +187,13 @@ void usart2_isr(void) {
   }
 }
 
-volatile uint8_t recvBuf[64];
-volatile uint8_t recvCunt = 0;
+extern volatile uint8_t recvBuf[64];
+extern volatile uint8_t recvCunt;
 void usart1_Ex_isr(void) {
   if (usart_get_flag(BLE_UART, USART_SR_RXNE) != 0) {
     ble_read_byte(&recvBuf[recvCunt++]);
+    if ((recvCunt == 1) && (recvBuf[0] != 0x5a)) {  // 测试需要
+      recvCunt = 0;
+    }
   }
 }
