@@ -5,9 +5,14 @@
 #include <stdint.h>
 
 #define _SUPPORT_DEBUG_UART_ 0
+#define _SUPPORT_GD32DRIVERS
 
 #if (_SUPPORT_DEBUG_UART_)
+#ifdef(_SUPPORT_GD32DRIVERS)
+extern void gd32debug_usart_setup(void);
+#else
 extern void usart_setup(void);
+#endif
 extern void vUART_DebugInfo(char *pcMsg, uint8_t *pucSendData,
                             uint16_t usStrLen);
 #endif

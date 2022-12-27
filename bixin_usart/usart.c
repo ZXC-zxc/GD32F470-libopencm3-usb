@@ -29,6 +29,10 @@
 // #include "ble.h"
 #include "usart.h"
 
+#ifdef _SUPPORT_GD32DRIVERS
+// #include "gd32f4xx.h"
+#endif
+
 #if (_SUPPORT_DEBUG_UART_)
 /************************************************************************
 函数名称:vUART_HtoA
@@ -72,7 +76,11 @@ static void vUART_HtoA(uint8_t *pucSrc, uint16_t usLen, uint8_t *pucDes) {
 static void vUART_SendData(uint8_t *pucSendData, uint16_t usStrLen) {
   uint16_t i;
   for (i = 0; i < usStrLen; i++) {
+#ifdef _SUPPORTR_GD32DRIVERS
+    usart_send_blocking(USART0, pucSendData[i]);
+#else
     usart_send_blocking(USART1, pucSendData[i]);
+#endif
   }
 }
 
@@ -98,6 +106,32 @@ void vUART_DebugInfo(char *pcMsg, uint8_t *pucSendData, uint16_t usStrLen) {
   vUART_SendData((uint8_t *)"\n", 1);
 }
 
+#ifdef _SUPPORT_GD32DRIVERS
+void gd32debug_usart_setup(void) {
+  /* enable GPIO clock */
+  rcu_periph_clock_enable(RCU_GPIOA);
+  /* enable USART clock */
+  rcu_periph_clock_enable(RCU_USART0);
+  /* configure the USART0 TX pin and USART0 RX pin */
+  gpio_af_set(GPIOA, GPIO_AF_7, GPIO_PIN_9);
+  gpio_af_set(GPIOA, GPIO_AF_7, GPIO_PIN_10);
+
+  /* configure USART0 TX as alternate function push-pull */
+  gpio_mode_set(GPIOA, GPIO_MODE_AF, GPIO_PUPD_PULLUP, GPIO_PIN_9);
+  gpio_output_options_set(GPIOA, GPIO_OTYPE_PP, GPIO_OSPEED_50MHZ, GPIO_PIN_9);
+
+  /* configure USART0 RX as alternate function push-pull */
+  gpio_mode_set(GPIOA, GPIO_MODE_AF, GPIO_PUPD_PULLUP, GPIO_PIN_10);
+  gpio_output_options_set(GPIOA, GPIO_OTYPE_PP, GPIO_OSPEED_50MHZ, GPIO_PIN_10);
+
+  /* USART configure */
+  usart_deinit(USART0);
+  usart_baudrate_set(USART0, 115200U);
+  usart_receive_config(USART0, USART_RECEIVE_ENABLE);
+  usart_transmit_config(USART0, USART_TRANSMIT_ENABLE);
+  usart_enable(USART0);
+}
+#else
 void usart_setup(void) {
   rcc_periph_clock_enable(RCC_USART1);
   // rcc_periph_clock_enable(RCC_GPIOA);
@@ -118,6 +152,7 @@ void usart_setup(void) {
   /* Finally enable the USART. */
   usart_enable(USART1);
 }
+#endif
 
 #endif
 
@@ -138,7 +173,6 @@ void ble_usart_init(void) {
   usart_set_flow_control(BLE_UART, USART_FLOWCONTROL_NONE);
   usart_set_mode(BLE_UART, USART_MODE_TX_RX);
   usart_enable(BLE_UART);
-
   // set NVIC
   ble_usart_irq_set();
 }
