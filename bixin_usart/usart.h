@@ -17,7 +17,8 @@ extern void vUART_DebugInfo(char *pcMsg, uint8_t *pucSendData,
                             uint16_t usStrLen);
 #endif
 
-#define BLE_UART USART2
+// #define BLE_UART USART2
+#define BLE_UART ((uint32_t)0x40000000U + 0x00004400U)
 
 typedef struct _usart_msg {
   uint16_t header;

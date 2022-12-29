@@ -780,6 +780,7 @@ void usart1_isr(void) {
 static void ble_gd32usart_init(void) {
   /*configure USART1*/
   rcu_periph_clock_enable(RCU_USART1);
+  rcu_periph_clock_enable(RCU_GPIOA);
   /* configure the USART1 TX pin and RX pin*/
   gpio_af_set(GPIOA, GPIO_AF_7,
               GPIO_PIN_2 | GPIO_PIN_3);  // USART1 PIN2 -> TX, PIN3 -> RX
@@ -807,18 +808,15 @@ static void ble_gd32usart_init(void) {
 }
 
 void usartLoop(void) {
-  /* enable USART and GPIOA clock */
-  rcu_periph_clock_enable(RCU_GPIOA);
   comBus_init();
   SET_COMBUS_LOW();
   recvCunt = 0;
-
-#if 1
   for (uint8_t i = 0; i < 18; i++) {
     transmitter_buffer[i] = 0x5a;
     // receiver_buffer1[i] = 0xFF;
   }
 
+#ifdef _SUPPORT_GD32DRIVERS
   ble_gd32usart_init();
 #else
   // libopencm3 init usart1

@@ -156,6 +156,7 @@ void usart_setup(void) {
 
 #endif
 
+extern void usart_baudrate_set(uint32_t usart_periph, uint32_t baudval);
 void ble_usart_init(void) {
   // enable USART clock
   rcc_periph_clock_enable(RCC_USART2);
@@ -166,7 +167,9 @@ void ble_usart_init(void) {
 
   usart_disable(BLE_UART);
   // usart2 set
-  usart_set_baudrate(BLE_UART, 115200);
+  // usart_set_baudrate(BLE_UART, 115200);
+  usart_baudrate_set(BLE_UART, 115200);
+
   usart_set_databits(BLE_UART, 8);
   usart_set_stopbits(BLE_UART, USART_STOPBITS_1);
   usart_set_parity(BLE_UART, USART_PARITY_NONE);
@@ -174,7 +177,7 @@ void ble_usart_init(void) {
   usart_set_mode(BLE_UART, USART_MODE_TX_RX);
   usart_enable(BLE_UART);
   // set NVIC
-  ble_usart_irq_set();
+  // ble_usart_irq_set();
 }
 
 void ble_usart_irq_set(void) {
