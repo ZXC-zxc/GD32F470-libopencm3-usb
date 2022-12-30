@@ -13,25 +13,31 @@
 #define MI2C_BUF_MAX_LEN (1024 + 512)
 #define MI2C_SEND_MAX_LEN (1024 + 512)
 
-#define MI2CX I2C1
-
+#ifdef GD32F470
+#include "gd32f4xx.h"
+#define MI2CX I2C0
 // master I2C gpio
 #define GPIO_MI2C_PORT GPIOB
-
+//#define MI2C_COMBUS     GPIO2
+#define GPIO_MI2C_SCL GPIO6
+#define GPIO_MI2C_SDA GPIO7
+#else
+#define MI2CX I2C1
+// master I2C gpio
+#define GPIO_MI2C_PORT GPIOB
 //#define MI2C_COMBUS     GPIO2
 #define GPIO_MI2C_SCL GPIO8
 #define GPIO_MI2C_SDA GPIO9
+#endif
 
 #ifdef NORMAL_PCB
 // SE power IO
 #define GPIO_SE_PORT GPIOB
 #define GPIO_SE_POWER GPIO13
 #else
-
 // SE power IO
 #define GPIO_SE_PORT GPIOC
 #define GPIO_SE_POWER GPIO8
-
 #endif
 
 // power control SE

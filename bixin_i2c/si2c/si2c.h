@@ -7,10 +7,6 @@
 #define _SUPPORT_SOFTI2C_ 0
 #define SI2C_BUF_MAX_OUT_LEN (1024 * 3)
 
-#define BLE_SI2C                                                         \
-  ((uint32_t)0x40000000U + (uint32_t)0x00005800U) /*!< I2C2 base address \
-                                                   */
-
 typedef enum _ChannelType {
   CHANNEL_NULL,
   CHANNEL_USB,
@@ -19,6 +15,12 @@ typedef enum _ChannelType {
 
 extern ChannelType host_channel;
 
+#if GD32F470
+#define BLE_SI2C                                                         \
+  ((uint32_t)0x40000000U + (uint32_t)0x00005800U) /*!< I2C2 base address \
+                                                   */
+#else
+#endif
 // I2C gpio
 #define GPIO_SI2C_PORT GPIOB
 #define GPIO_SI2C_SCL GPIO10

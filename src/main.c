@@ -80,7 +80,7 @@ static spi_master_init(void) {
 
 // #define TEST_RECV
 #define SE_I2C_ADDRESS7 0x20  // 0x72
-#define SI2C_ADDR 0x90        // 90
+#define SI2C_ADDR 0x48        // 0x90 /* 使用gd32 driver */
 
 volatile uint8_t mi2c_se_transBuff[16];
 
@@ -144,6 +144,26 @@ static void mi2c0_init_common(void) {
   i2c_ack_config(I2C0, I2C_ACK_ENABLE);
 }
 
+void vMI2CDRV_Init_ex(void) {
+  rcc_periph_clock_enable(RCC_I2C1);
+  rcc_periph_clock_enable(RCC_GPIOB);
+
+  gpio_set_output_options(GPIO_MI2C_PORT, GPIO_OTYPE_OD, GPIO_OSPEED_50MHZ,
+                          GPIO_MI2C_SCL | GPIO_MI2C_SDA);
+  gpio_set_af(GPIO_MI2C_PORT, GPIO_AF4, GPIO_MI2C_SCL | GPIO_MI2C_SDA);
+  gpio_mode_setup(GPIO_MI2C_PORT, GPIO_MODE_AF, GPIO_PUPD_NONE,
+                  GPIO_MI2C_SCL | GPIO_MI2C_SDA);
+  i2c_reset(MI2CX);  // void i2c_deinit(uint32_t i2c_periph);
+  delay_ms(100);
+  i2c_peripheral_disable(MI2CX);  // void i2c_disable(uint32_t i2c_periph);
+
+  // 100k
+  i2c_set_speed(MI2CX, i2c_speed_sm_100k,
+                30);             // i2c_clock_config(I2C0, 100000, I2C_DTCY_2);
+  i2c_peripheral_enable(MI2CX);  // void i2c_enable(uint32_t i2c_periph);
+  delay_ms(100);
+}
+
 void mi2c0_init_irq(void) {
   /* enable GPIOB clock */
   rcu_periph_clock_enable(RCU_GPIOB);
@@ -178,6 +198,8 @@ void mi2c0_init_irq(void) {
 }
 
 void si2c1_init_irq(void) {
+  /* enable GPIOB clock */
+  rcu_periph_clock_enable(RCU_GPIOB);
   rcu_periph_clock_enable(RCU_I2C1);
   /* connect PB10 to I2C1_SCL */
   gpio_af_set(GPIOB, GPIO_AF_4, GPIO_PIN_10);
@@ -190,14 +212,14 @@ void si2c1_init_irq(void) {
   gpio_mode_set(GPIOB, GPIO_MODE_AF, GPIO_PUPD_PULLUP, GPIO_PIN_11);
   gpio_output_options_set(GPIOB, GPIO_OTYPE_OD, GPIO_OSPEED_50MHZ, GPIO_PIN_11);
 
-  i2c_clock_config(I2C1, 100000, I2C_DTCY_2);
+  i2c_clock_config(BLE_SI2C, 100000, I2C_DTCY_2);
   /* I2C address configure */
-  i2c_mode_addr_config(I2C1, I2C_I2CMODE_ENABLE, I2C_ADDFORMAT_7BITS,
+  i2c_mode_addr_config(BLE_SI2C, I2C_I2CMODE_ENABLE, I2C_ADDFORMAT_7BITS,
                        I2C1_SLAVE_ADDRESS7);
   /* enable I2C1 */
-  i2c_enable(I2C1);
+  i2c_enable(BLE_SI2C);
   /* enable acknowledge */
-  i2c_ack_config(I2C1, I2C_ACK_ENABLE);
+  i2c_ack_config(BLE_SI2C, I2C_ACK_ENABLE);
 
   nvic_irq_enable(I2C1_EV_IRQn, 0, 4);
   nvic_irq_enable(I2C1_ER_IRQn, 0, 1);
@@ -207,35 +229,36 @@ void si2c_libopencm3_init(void) {
   rcc_periph_clock_enable(RCC_I2C2);
   rcc_periph_clock_enable(RCC_GPIOB);
 
-  i2c_reset(I2C1);
-  gpio_set_af(GPIO_SI2C_PORT, GPIO_AF4, GPIO_SI2C_SCL | GPIO_SI2C_SDA);
+  i2c_reset(BLE_SI2C);
 
   gpio_set_output_options(GPIO_SI2C_PORT, GPIO_OTYPE_OD, GPIO_OSPEED_50MHZ,
                           GPIO_SI2C_SCL | GPIO_SI2C_SDA);
-  gpio_mode_setup(GPIO_SI2C_PORT, GPIO_MODE_AF, GPIO_PUPD_PULLUP,
+  gpio_mode_setup(GPIO_SI2C_PORT, GPIO_MODE_AF, GPIO_PUPD_NONE,
                   GPIO_SI2C_SCL | GPIO_SI2C_SDA);
+  gpio_set_af(GPIO_SI2C_PORT, GPIO_AF4, GPIO_SI2C_SCL | GPIO_SI2C_SDA);
+  i2c_peripheral_disable(BLE_SI2C);
+  /*	//HSI is at 2Mhz */
+  i2c_set_fast_mode(BLE_SI2C);
+  i2c_set_speed(BLE_SI2C, i2c_speed_fm_400k, 30);
+  /*	//addressing mode*/
+  i2c_set_own_7bit_slave_address(BLE_SI2C, SI2C_ADDR);
+  i2c_enable_ack(BLE_SI2C);
 
-  i2c_set_fast_mode(I2C1);
-  i2c_set_speed(I2C1, i2c_speed_fm_400k, 30);
-  /* I2C address configure */
-  i2c_mode_addr_config(I2C1, I2C_I2CMODE_ENABLE, I2C_ADDFORMAT_7BITS,
-                       I2C1_SLAVE_ADDRESS7);
+  // use interrupt
+  i2c_enable_interrupt(BLE_SI2C,
+                       I2C_CR2_ITBUFEN | I2C_CR2_ITEVTEN | I2C_CR2_ITERREN);
 
-  // /*	//HSI is at 2Mhz */
-  // // i2c_set_standard_mode(I2C1);
-  // i2c_set_speed(I2C1, i2c_speed_sm_100k, 30);
-  // /*	//addressing mode*/
-  // i2c_set_own_7bit_slave_address(I2C1, I2C1_SLAVE_ADDRESS7);
+  // /* enable the I2C1 interrupt */
+  // i2c_interrupt_enable(BLE_SI2C, I2C_INT_ERR);
+  // i2c_interrupt_enable(BLE_SI2C, I2C_INT_EV);
+  // i2c_interrupt_enable(BLE_SI2C, I2C_INT_BUF);
 
-  /* enable I2C1 */
-  i2c_enable(I2C1);
-  // i2c_peripheral_disable(I2C1);
-
-  /* enable acknowledge */
-  i2c_ack_config(I2C1, I2C_ACK_ENABLE);
-
-  nvic_irq_enable(I2C1_EV_IRQn, 0, 4);
-  nvic_irq_enable(I2C1_ER_IRQn, 0, 1);
+  // I2C_CR1(I2C2) |= I2C_CR1_NOSTRETCH;
+  i2c_peripheral_enable(BLE_SI2C);
+  // set NVIC
+  nvic_set_priority(NVIC_I2C2_EV_IRQ, 0);
+  nvic_enable_irq(NVIC_I2C2_EV_IRQ);
+  i2c_enable_ack(BLE_SI2C);
 }
 
 void comBus_init(void) {
@@ -333,8 +356,10 @@ static bool bMI2CDRV_ReadBytes(uint32_t i2c, uint8_t *res,
       }
     }
     i2c_start_on_bus(i2c);
+    /* enable acknowledge */
+    i2c_ack_config(i2c, I2C_ACK_ENABLE);
     usTimeout = 0;
-    while (!i2c_flag_get(I2C0, I2C_FLAG_SBSEND)) {
+    while (!i2c_flag_get(i2c, I2C_FLAG_SBSEND)) {
       usTimeout++;
       if (usTimeout > MI2C_TIMEOUT) {
         break;
@@ -344,7 +369,7 @@ static bool bMI2CDRV_ReadBytes(uint32_t i2c, uint8_t *res,
     i2c_master_addressing(i2c, SE_I2C_ADDRESS7, I2C_RECEIVER);
     usTimeout = 0;
     // Waiting for address is transferred.
-    while (!i2c_flag_get(I2C0, I2C_FLAG_ADDSEND)) {
+    while (!i2c_flag_get(i2c, I2C_FLAG_ADDSEND)) {
       usTimeout++;
       if (usTimeout > MI2C_TIMEOUT) {
         break;
@@ -451,6 +476,7 @@ static bool bMI2CDRV_WriteBytes(uint32_t i2c, uint8_t *data,
     }
     /* send a start condition to I2C bus */
     i2c_start_on_bus(i2c);
+
     while (!i2c_flag_get(i2c, I2C_FLAG_SBSEND)) {
       usTimeout++;
       if (usTimeout > MI2C_TIMEOUT) {
@@ -486,7 +512,7 @@ static bool bMI2CDRV_WriteBytes(uint32_t i2c, uint8_t *data,
   for (i = 0; i < 2; i++) {
     i2c_data_transmit(i2c, ucLenBuf[i]);
     usTimeout = 0;
-    while (!i2c_flag_get(I2C0, I2C_FLAG_TBE)) {
+    while (!i2c_flag_get(i2c, I2C_FLAG_TBE)) {
       usTimeout++;
       if (usTimeout > MI2C_TIMEOUT) {
         return false;
@@ -573,8 +599,10 @@ void msi2c_com_Loop(void) {
   uint8_t i;
 
   comBus_init();
-  mi2c0_init_common();
-  si2c1_init_irq();
+  // mi2c0_init_common();
+  // vMI2CDRV_Init_ex();
+  // si2c1_init_irq();
+  si2c_libopencm3_init();
 
   i2c_txbuffer = i2c_buffer_transmitter;
   i2c_rxbuffer = i2c_buffer_receiver;
@@ -592,59 +620,11 @@ void msi2c_com_Loop(void) {
          "\xC8\x90\x00\x2D",
          21);
 
-  /* enable the I2C1 interrupt */
-  i2c_interrupt_enable(I2C1, I2C_INT_ERR);
-  i2c_interrupt_enable(I2C1, I2C_INT_EV);
-  i2c_interrupt_enable(I2C1, I2C_INT_BUF);
-
 #ifdef TEST_RECV
-  // master send with poll and slave receive with irq
-  // /* wait until I2C bus is idle */
-  // while (i2c_flag_get(I2C0, I2C_FLAG_I2CBSY))
-  //   ;
-  // /* send a start condition to I2C bus */
-  // i2c_start_on_bus(I2C0);
-
-  // /* wait until SBSEND bit is set */
-  // while (!i2c_flag_get(I2C0, I2C_FLAG_SBSEND))
-  //   ;
-  // /* send slave address to I2C bus */
-  // i2c_master_addressing(I2C0, SE_I2C_ADDRESS7, I2C_TRANSMITTER);
-  // /* wait until ADDSEND bit is set */
-  // while (!i2c_flag_get(I2C0, I2C_FLAG_ADDSEND))
-  //   ;
-  // /* clear ADDSEND bit */
-  // i2c_flag_clear(I2C0, I2C_FLAG_ADDSEND);
-  // /* wait until the transmit data buffer is empty */
-  // while (!i2c_flag_get(I2C0, I2C_FLAG_TBE))
-  //   ;
-
-  // for (i = 0; i < 16; i++) {
-  //   /* data transmission */
-  //   i2c_data_transmit(I2C0, mi2c_se_transBuff[i]);
-  //   /* wait until the TBE bit is set */
-  //   while (!i2c_flag_get(I2C0, I2C_FLAG_TBE))
-  //     ;
-  // }
-  // /* send a stop condition to I2C bus */
-  // i2c_stop_on_bus(I2C0);
-  // while (I2C_CTL0(I2C0) & I2C_CTL0_STOP)
-  //   ;
-
-  // /* if the transfer is successfully completed, LED1 and LED2 is on */
-  // state = memory_compare(mi2c_se_transBuff, i2c_buffer_receiver, 16);
-  // if (SUCCESS == state) {
-  //   /* if success, LED1 and LED2 are on */
-  //   while (1) {
-  //   }
-  // }
-
-  // while (i2c_flag_get(I2C0, I2C_FLAG_I2CBSY))
-  //   ;
-
   volatile uint16_t retLen = 0xff;
-  bMI2CDRV_WriteBytes(I2C0, g_ucRandCmd, 5);
-  bMI2CDRV_ReadBytes(I2C0, g_ucRecvBuf, &retLen);
+  bMI2CDRV_WriteBytes(MI2CX, g_ucRandCmd, 5);
+  delay_ms(10);
+  bMI2CDRV_ReadBytes(MI2CX, g_ucRecvBuf, &retLen);
   while (1)
     ;
   state = memory_compare(g_ucRandCmd, i2c_buffer_receiver + 2, 5);
@@ -655,67 +635,6 @@ void msi2c_com_Loop(void) {
   }
 
 #else
-  // master receive with poll and slave send with irq
-  /* wait until I2C bus is idle */
-  // while (i2c_flag_get(I2C0, I2C_FLAG_I2CBSY))
-  //   ;
-  // /* send a start condition to I2C bus */
-  // i2c_start_on_bus(I2C0);
-  // /* wait until SBSEND bit is set */
-  // while (!i2c_flag_get(I2C0, I2C_FLAG_SBSEND))
-  //   ;
-  // /* send slave address to I2C bus */
-  // i2c_master_addressing(I2C0, I2C1_SLAVE_ADDRESS7, I2C_RECEIVER);
-  // /* wait until ADDSEND bit is set */
-  // while (!i2c_flag_get(I2C0, I2C_FLAG_ADDSEND))
-  //   ;
-  // /* clear ADDSEND bit */
-  // i2c_flag_clear(I2C0, I2C_FLAG_ADDSEND);
-
-  // for (i = 0; i < 15; i++) {
-  //   /* wait until the RBNE bit is set */
-  //   while (!i2c_flag_get(I2C0, I2C_FLAG_RBNE))
-  //     ;
-  //   /* read a data from I2C_DATA */
-  //   i2c_rxbuffer[i] = i2c_data_receive(I2C0);
-  // }
-  // /* send a NACK for the last data byte */
-  // i2c_ack_config(I2C0, I2C_ACK_DISABLE);
-
-  // // /* send a data byte */
-  // // i2c_data_transmit(I2C1, i2c_transmitter[i]);
-  // // /* wait until the transmission data register is empty */
-  // // while (!i2c_flag_get(I2C1, I2C_FLAG_TBE))
-  // //   ;
-  // // /* the master doesn't acknowledge for the last byte */
-  // // while (!i2c_flag_get(I2C1, I2C_FLAG_AERR))
-  // //   ;
-
-  // /* send a stop condition to I2C bus */
-  // i2c_stop_on_bus(I2C0);
-  // while (I2C_CTL0(I2C0) & I2C_CTL0_STOP)
-  //   ;
-  // i2c_rxbuffer[i] = i2c_data_receive(I2C0);
-  // i2c_ack_config(I2C0, I2C_ACK_ENABLE);
-  // /* clear the bit of AERR */
-  // i2c_flag_clear(I2C1, I2C_FLAG_AERR);
-
-  // /* compare the transmit buffer and the receive buffer */
-  // state = memory_compare(i2c_buffer_transmitter, i2c_buffer_receiver, 16);
-  // /* if success, LED1 and LED2 are on */
-  // if (SUCCESS == state) {
-  //   while (1) {
-  //   }
-  // }
-  // volatile uint16_t retLen = 0xff;
-  // bMI2CDRV_ReadBytes(I2C0, g_ucRecvBuf, &retLen);
-  // state = memory_compare(i2c_buffer_transmitter + 2, g_ucRecvBuf, retLen);
-  // if (SUCCESS == state) {
-  //   /* if success, LED1 and LED2 are on */
-  //   while (1) {
-  //   }
-  // }
-
   while (i2c_nbytes != 0) {
     ;
   }
@@ -770,7 +689,7 @@ volatile uint8_t recvCunt = 0;
 void usart1_isr(void) {
   // if ((RESET != usart_interrupt_flag_get(USART1, USART_INT_FLAG_RBNE)) &&
   //     (RESET != usart_flag_get(USART1, USART_FLAG_RBNE))) {
-  if (RESET != usart_flag_get(USART1, USART_FLAG_RBNE)) {
+  if (RESET != usart_flag_get(BLE_UART, USART_FLAG_RBNE)) {
     /* receive data */
     // receiver_buffer1[rxcount0++] = usart_data_receive(USART1);
     ble_read_byte(&receiver_buffer1[rxcount0++]);
@@ -816,30 +735,13 @@ void usartLoop(void) {
     // receiver_buffer1[i] = 0xFF;
   }
 
-#ifdef _SUPPORT_GD32DRIVERS
+#ifndef _SUPPORT_GD32DRIVERS
   ble_gd32usart_init();
 #else
   // libopencm3 init usart1
   ble_usart_init();
 #endif
 
-  // for (uint8_t i = 0; i < 64; i++) {
-  //   recvBuf[i] = 0xFF;
-  // }
-
-  /* USART0 transmit and USART1 receive */
-  // while (transfersize--) {
-  //   // /* wait until end of transmit */
-  //   // while (RESET == usart_flag_get(USART0, USART_FLAG_TBE))
-  //   //   ;
-  //   // usart_data_transmit(USART0, transmitter_buffer[txcount0++]);
-
-  //   // ble_usart_send(transmitter_buffer[txcount0++], 1);
-  //   /* wait until end of transmit */
-  //   while (RESET == usart_flag_get(USART1, USART_FLAG_TBE))
-  //     ;
-  //   usart_data_transmit(USART1, transmitter_buffer[txcount1++]);
-  // }
 #ifdef TEST_SELF
   /* 开发板需要短接 PA2(TX) == PA3(RX)*/
   /* 断点停住后查看recvBuf中值是否与transmitter_buffer相同*/
@@ -854,13 +756,13 @@ void usartLoop(void) {
     }
   }
 #else
-  /* 与nordic52832调试usart功能*/
-  /* 判断数据正确性 */
-  transmitter_buffer[0] = 0xa1;
-  transmitter_buffer[17] = 0xb2;
-  ble_usart_send(transmitter_buffer, 18);
-  while (1)
-    ;
+  // /* 与nordic52832调试usart功能*/
+  // /* 判断数据正确性 */
+  // transmitter_buffer[0] = 0xa1;
+  // transmitter_buffer[17] = 0xb2;
+  // ble_usart_send(transmitter_buffer, 18);
+  // while (1)
+  //   ;
 
   while (recvCunt != 0x12) {
     ;
