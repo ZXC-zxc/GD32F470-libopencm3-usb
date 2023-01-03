@@ -9,6 +9,7 @@
 #include "gd32f4xx.h"
 #include "gd32f470i_eval.h"
 
+
 extern void usbLoop(void);
 extern void usbInit(void);
 extern void usbPoll(void);
@@ -45,26 +46,28 @@ static spi_master_init(void) {
   spi_init(OLED_SPI1, &spi_init_struct);*/
 
   // use libopencm3
-  rcc_periph_clock_enable(RCC_GPIOI);
-  rcc_periph_clock_enable(RCC_GPIOH);
-  rcc_periph_clock_enable(RCC_SPI2);
+  rcc_periph_clock_enable(RCC_OLED_DC);
+  rcc_periph_clock_enable(RCC_OLED_DATA);
+  rcc_periph_clock_enable(RCC_OLED_SPI);
   gpio_mode_setup(OLED_DC_PORT,GPIO_MODE_OUTPUT,GPIO_PUPD_NONE,OLED_DC_PIN);
   gpio_mode_setup(OLED_RST_PORT,GPIO_MODE_OUTPUT,GPIO_PUPD_NONE,OLED_RST_PIN);
-  gpio_set_af(OLED_CS_PORT,GPIO_AF5,GPIO1 | GPIO2 | GPIO3);
-  gpio_mode_setup(OLED_CS_PORT,GPIO_MODE_AF,GPIO_PUPD_NONE,GPIO1 | GPIO2 | GPIO3);
-  gpio_set_output_options(OLED_CS_PORT,GPIO_OTYPE_PP,GPIO_OSPEED_50MHZ,GPIO1 | GPIO2 | GPIO3);
+  gpio_set_af(OLED_CS_PORT,GPIO_AF5,OLED_SCK_PIN|OLED_MOSI_PIN);
+  gpio_mode_setup(OLED_CS_PORT,GPIO_MODE_AF,GPIO_PUPD_NONE,OLED_SCK_PIN|OLED_MOSI_PIN);
+  gpio_set_output_options(OLED_CS_PORT,GPIO_OTYPE_PP,GPIO_OSPEED_50MHZ,OLED_SCK_PIN|OLED_MOSI_PIN);
   gpio_mode_setup(OLED_CS_PORT,GPIO_MODE_OUTPUT,GPIO_PUPD_NONE,GPIO0);
   gpio_set_output_options(OLED_CS_PORT,GPIO_OTYPE_PP,GPIO_OSPEED_50MHZ,GPIO0);
 
 
   spi_init_master(
-       OLED_SPI1, SPI_CR1_BAUDRATE_FPCLK_DIV_64,
+       OLED_SPI_BASE, SPI_CR1_BAUDRATE_FPCLK_DIV_64,
        SPI_CR1_CPOL_CLK_TO_0_WHEN_IDLE, SPI_CR1_CPHA_CLK_TRANSITION_1,
        SPI_CR1_DFF_8BIT, SPI_CR1_MSBFIRST);
 
+  spi_enable_ss_output(OLED_SPI_BASE);
+
   OLED_NSS_HIGH;
 
-  spi_enable(OLED_SPI1);
+  spi_enable(OLED_SPI_BASE);
 }
 
 // #define TEST_RECV
