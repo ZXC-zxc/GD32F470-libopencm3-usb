@@ -13,6 +13,7 @@ TOP=$(shell pwd)
 #设定包含文件目录
 INC_FLAGS= -I $(TOP)/libopencm3/lib/gd32/f4xx/GD32F4xx_standard_peripheral/Include  \
 		-I $(TOP)/libopencm3/lib/gd32/f4xx/CMSIS  \
+		-I $(TOP)/libopencm3/lib/gd32/f4xx/CMSIS/GD/GD32F4xx/Include  \
 		-I $(TOP)/bixin_usb/common \
 		-I $(TOP)/bixin_usb/firmware  \
 		-I $(TOP)/bixin_i2c/mi2c  \
