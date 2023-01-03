@@ -71,7 +71,7 @@ C_SRC+=$(TOP)/bixin_usart/usart.c
 C_OBJ=$(C_SRC:%.c=%.o)          
 
 # ASM_SRC=$(shell find ./ -name '*.s')  
-ASM_SRC = $(TOP)/libopencm3/lib/gd32/f4xx/CMSIS/GD/GD32F4xx/Source/GCC/startup_gd32f450_470.S
+ASM_SRC = $(TOP)/src/startup_gd32f450_470.S
 ASM_OBJ=$(ASM_SRC:%.s=%.o)  
 
 .PHONY: all clean update      
