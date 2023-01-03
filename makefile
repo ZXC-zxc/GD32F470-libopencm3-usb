@@ -11,14 +11,8 @@ export OBJCOPY        = arm-none-eabi-objcopy
 TOP=$(shell pwd)
 
 #设定包含文件目录
-INC_FLAGS= -I $(TOP)/gd_libs/GD32F4xx/Firmware/GD32F4xx_standard_peripheral/Include  \
-		-I $(TOP)/gd_libs/GD32F4xx/Firmware/CMSIS  \
-		-I $(TOP)/gd_libs/GD32F4xx/Firmware/GD32F4xx_usb_library/device/core/Include  \
-		-I $(TOP)/gd_libs/GD32F4xx/Firmware/GD32F4xx_usb_library/driver/Include \
-		-I $(TOP)/gd_libs/GD32F4xx/Firmware/GD32F4xx_usb_library/device/class/msc/Include  \
-		-I $(TOP)/gd_libs/GD32F4xx/Firmware/GD32F4xx_usb_library/ustd/common   \
-		-I $(TOP)/gd_libs/GD32F4xx/Firmware/GD32F4xx_usb_library/device/class/msc/Include  \
-		-I $(TOP)/gd_libs/GD32F4xx/Firmware/GD32F4xx_usb_library/ustd/class/msc \
+INC_FLAGS= -I $(TOP)/libopencm3/lib/gd32/f4xx/GD32F4xx_standard_peripheral/Include  \
+		-I $(TOP)/libopencm3/lib/gd32/f4xx/CMSIS  \
 		-I $(TOP)/bixin_usb/common \
 		-I $(TOP)/bixin_usb/firmware  \
 		-I $(TOP)/bixin_i2c/mi2c  \
@@ -39,33 +33,12 @@ CFLAGS +=   $(INC_FLAGS) -Os -g -std=gnu11
 ASMFLAGS = -mthumb -mcpu=cortex-m4 -g -Wa,--warn 
 LDFLAGS += -mthumb -mcpu=cortex-m4
 LDFLAGS += -Wl,--start-group -lc -lm -Wl,--end-group -specs=nosys.specs -static -Wl,-cref,-u,Reset_Handler -Wl,-Map=Project.map -Wl,--gc-sections -Wl,--defsym=malloc_getpagesize_P=0x80
+LDFLAGS += -L$(TOP)/libopencm3/lib  -lopencm3_gd32f4xx
+
 
 LD_PATH = -T $(TOP)/ldscripts/gd32f470xK_flash.ld
 
 C_SRC=$(shell find ./src -name '*.c')  
-C_SRC+=$(shell find ./gd_libs/GD32F4xx/Firmware/CMSIS -name '*.c')  
-C_SRC+=$(shell find ./gd_libs/GD32F4xx/Firmware/GD32F4xx_standard_peripheral -name '*.c')  
-# C_SRC+=$(shell find ./gd_libs/GD32F4xx/Firmware/GD32F4xx_usb_library/device/core/Source -name '*.c')  
-# C_SRC+=$(shell find ./gd_libs/GD32F4xx/Firmware/GD32F4xx_usb_library/driver/Source -name '*.c')  
-# C_SRC+=$(shell find ./gd_libs/GD32F4xx/Firmware/GD32F4xx_usb_library/device/class/msc/Source -name '*.c')  
-# libopencm3 related
-C_SRC+=$(TOP)/libopencm3/lib/cm3/nvic.c
-C_SRC+=$(TOP)/libopencm3/lib/stm32/f4/rcc.c
-C_SRC+=$(TOP)/libopencm3/lib/stm32/f4/pwr.c
-C_SRC+=$(TOP)/libopencm3/lib/stm32/f4/flash.c
-C_SRC+=$(TOP)/libopencm3/lib/stm32/common/gpio_common_f0234.c
-C_SRC+=$(TOP)/libopencm3/lib/stm32/common/gpio_common_all.c
-C_SRC+=$(TOP)/libopencm3/lib/stm32/common/flash_common_idcache.c
-C_SRC+=$(TOP)/libopencm3/lib/stm32/common/flash_common_all.c
-C_SRC+=$(TOP)/libopencm3/lib/stm32/common/flash_common_f24.c
-C_SRC+=$(TOP)/libopencm3/lib/stm32/common/flash_common_f.c
-C_SRC+=$(TOP)/libopencm3/lib/stm32/common/rcc_common_all.c
-C_SRC+=$(TOP)/libopencm3/lib/stm32/common/spi_common_all.c
-C_SRC+=$(TOP)/libopencm3/lib/stm32/common/spi_common_v1.c
-C_SRC+=$(TOP)/libopencm3/lib/stm32/common/spi_common_v1_frf.c
-C_SRC+=$(TOP)/libopencm3/lib/stm32/common/i2c_common_v1.c
-C_SRC+=$(TOP)/libopencm3/lib/stm32/common/usart_common_all.c
-C_SRC+=$(TOP)/libopencm3/lib/stm32/common/usart_common_f124.c
 
 # usb related
 C_SRC+=$(TOP)/libopencm3/lib/usb/usb.c
