@@ -18,62 +18,52 @@ extern void firmware_usbLoop(void);
 void usartLoop(void);
 
 static spi_master_init(void) {
-  // enable SPI 1 for OLED display
-  // gd32f470 : PI1-SPI1_SCK、 PI2-SPI1_MISO、PI3-SPI1_MOSI
-  // rcc_periph_clock_enable(RCC_GPIOI);
-  // rcc_periph_clock_enable(RCC_SPI1);
-
-  // gpio_set_af(GPIOB, GPIO_AF5, GPIO1 | GPIO2 | GPIO3);
-  // gpio_mode_setup(GPIOB, GPIO_MODE_AF, GPIO_PUPD_NONE, GPIO1 | GPIO2 |
-  // GPIO3);
-  // // gpio_set_output_options(GPIOI, GPIO_OTYPE_PP, GPIO_OSPEED_50MHZ,
-  // //                         GPIO1 | GPIO2 | GPIO3);
-
-  // gpio_mode_setup(GPIOI, GPIO_MODE_OUTPUT, GPIO_PUPD_NONE, GPIO0);
-  // gpio_set_output_options(GPIOI, GPIO_OTYPE_PP, GPIO_OSPEED_50MHZ, GPIO0);
 
   // 使用gd driver
-  rcu_periph_clock_enable(RCU_GPIOI);
-  rcu_periph_clock_enable(RCU_GPIOH);
-  rcu_periph_clock_enable(RCU_SPI1);
-
+  //rcu_periph_clock_enable(RCU_GPIOI);
+  //rcu_periph_clock_enable(RCU_GPIOH);
+  //rcu_periph_clock_enable(RCU_SPI1);
   /* configure OLED DC RST PIN*/
-  gpio_mode_set(OLED_DC_PORT, GPIO_MODE_OUTPUT, GPIO_PUPD_NONE, OLED_DC_PIN);
-  gpio_mode_set(OLED_RST_PORT, GPIO_MODE_OUTPUT, GPIO_PUPD_NONE, OLED_RST_PIN);
-
-  /* configure SPI1 GPIO */
-  gpio_af_set(GPIOI, GPIO_AF_5, GPIO_PIN_1 | GPIO_PIN_2 | GPIO_PIN_3);
-  gpio_mode_set(GPIOI, GPIO_MODE_AF, GPIO_PUPD_NONE,
-                GPIO_PIN_1 | GPIO_PIN_2 | GPIO_PIN_3);
-  gpio_output_options_set(GPIOI, GPIO_OTYPE_PP, GPIO_OSPEED_50MHZ,
-                          GPIO_PIN_1 | GPIO_PIN_2 | GPIO_PIN_3);
-
-  /* set SPI1_NSS as GPIO*/
-  gpio_mode_set(GPIOI, GPIO_MODE_OUTPUT, GPIO_PUPD_NONE, GPIO_PIN_0);
-  gpio_output_options_set(GPIOI, GPIO_OTYPE_PP, GPIO_OSPEED_50MHZ, GPIO_PIN_0);
-
-  spi_parameter_struct spi_init_struct;
+  //gpio_mode_set(OLED_DC_PORT, GPIO_MODE_OUTPUT, GPIO_PUPD_NONE, OLED_DC_PIN);
+  //gpio_mode_set(OLED_RST_PORT, GPIO_MODE_OUTPUT, GPIO_PUPD_NONE, OLED_RST_PIN);
+  //gpio_af_set(GPIOI, GPIO_AF_5, GPIO_PIN_1 | GPIO_PIN_2 | GPIO_PIN_3);
+  //gpio_mode_set(GPIOI, GPIO_MODE_AF, GPIO_PUPD_NONE,GPIO_PIN_1 | GPIO_PIN_2 | GPIO_PIN_3);
+  //gpio_output_options_set(GPIOI, GPIO_OTYPE_PP, GPIO_OSPEED_50MHZ,GPIO_PIN_1 | GPIO_PIN_2 | GPIO_PIN_3);
+    /* set SPI1_NSS as GPIO*/
+  //gpio_mode_set(GPIOI, GPIO_MODE_OUTPUT, GPIO_PUPD_NONE, GPIO_PIN_0);
+  //gpio_output_options_set(GPIOI, GPIO_OTYPE_PP, GPIO_OSPEED_50MHZ, GPIO_PIN_0);
+  //spi_parameter_struct spi_init_struct;
 
   /* configure SPI1 parameter */
-  spi_init_struct.trans_mode = SPI_TRANSMODE_FULLDUPLEX;
+  /*spi_init_struct.trans_mode = SPI_TRANSMODE_FULLDUPLEX;
   spi_init_struct.device_mode = SPI_MASTER;
   spi_init_struct.frame_size = SPI_FRAMESIZE_8BIT;
   spi_init_struct.clock_polarity_phase = SPI_CK_PL_LOW_PH_1EDGE;
   spi_init_struct.nss = SPI_NSS_SOFT;
   spi_init_struct.prescale = SPI_PSC_64;
   spi_init_struct.endian = SPI_ENDIAN_MSB;
-  spi_init(OLED_SPI1, &spi_init_struct);
+  spi_init(OLED_SPI1, &spi_init_struct);*/
 
-  //	spi_disable_crc(SPI1);
-  // spi_init_master(
-  //     OLED_SPI1, SPI_CR1_BAUDRATE_FPCLK_DIV_64,
-  //     SPI_CR1_CPOL_CLK_TO_0_WHEN_IDLE, SPI_CR1_CPHA_CLK_TRANSITION_1,
-  //     SPI_CR1_DFF_8BIT, SPI_CR1_MSBFIRST);
-  // spi_enable_ss_output(SPI1);
+  // use libopencm3
+  rcc_periph_clock_enable(RCC_GPIOI);
+  rcc_periph_clock_enable(RCC_GPIOH);
+  rcc_periph_clock_enable(RCC_SPI2);
+  gpio_mode_setup(OLED_DC_PORT,GPIO_MODE_OUTPUT,GPIO_PUPD_NONE,OLED_DC_PIN);
+  gpio_mode_setup(OLED_RST_PORT,GPIO_MODE_OUTPUT,GPIO_PUPD_NONE,OLED_RST_PIN);
+  gpio_set_af(OLED_CS_PORT,GPIO_AF5,GPIO1 | GPIO2 | GPIO3);
+  gpio_mode_setup(OLED_CS_PORT,GPIO_MODE_AF,GPIO_PUPD_NONE,GPIO1 | GPIO2 | GPIO3);
+  gpio_set_output_options(OLED_CS_PORT,GPIO_OTYPE_PP,GPIO_OSPEED_50MHZ,GPIO1 | GPIO2 | GPIO3);
+  gpio_mode_setup(OLED_CS_PORT,GPIO_MODE_OUTPUT,GPIO_PUPD_NONE,GPIO0);
+  gpio_set_output_options(OLED_CS_PORT,GPIO_OTYPE_PP,GPIO_OSPEED_50MHZ,GPIO0);
+
+
+  spi_init_master(
+       OLED_SPI1, SPI_CR1_BAUDRATE_FPCLK_DIV_64,
+       SPI_CR1_CPOL_CLK_TO_0_WHEN_IDLE, SPI_CR1_CPHA_CLK_TRANSITION_1,
+       SPI_CR1_DFF_8BIT, SPI_CR1_MSBFIRST);
+
   OLED_NSS_HIGH;
-  //	spi_enable_software_slave_manage  ment(SPI1);
-  //	spi_set_nss_high(SPI1);
-  //	spi_clear_mode_fault(SPI1);
+
   spi_enable(OLED_SPI1);
 }
 
@@ -658,10 +648,10 @@ int main(void) {
   // usbLoop();
 
   // firmware_usbLoop();
-  // spi_master_init();
-  // oledInit();
-  // spiLoop();
-  usartLoop();
+   spi_master_init();
+   oledInit();
+   spiLoop();
+  //usartLoop();
   // msi2c_irq_Loop();
   // msi2c_com_Loop();
   return 0;
